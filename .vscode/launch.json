@@ -17,7 +17,7 @@
             "type": "python",
             "request": "launch",
             "module": "pytest",
-            "cwd": "C:\\Users\\UT00YBG3\\Documents\\arcprize2025",
+            "cwd": "/home/yann/ssd_storage/python/arcprize2025",
             "args": [
                 // "-k", "test_main_part_predict_no_error",
                 // "-k", "test_unit_format_dataset_single_batch"
