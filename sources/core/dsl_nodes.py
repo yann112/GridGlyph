@@ -69,3 +69,11 @@ class FlipGridVertically(AbstractTransformationCommand):
     def execute(self, input_grid: np.ndarray) -> np.ndarray:
         self.logger.debug("Executing FlipGridVertically.")
         return np.flipud(input_grid)
+
+
+DSL_REGISTRY = {
+    'repeat_grid': RepeatGrid,
+    'identity': Identity,
+    'flip_h': FlipGridHorizontally,
+    'flip_v': FlipGridVertically
+}

@@ -1,11 +1,14 @@
 import pytest
 from core.llm import OpenRouterClient
 from agents.synthesize_agent import SynthesizeAgent
+from core.synthesis_engine import SynthesisEngine
+
 
 @pytest.mark.integration
 def test_synthesize_agent_returns_program():
     llm = OpenRouterClient()
-    agent = SynthesizeAgent(llm)
+    synthesizer = SynthesisEngine()
+    agent = SynthesizeAgent(llm, synthesizer)
 
     input_grid = "[[0, 0], [1, 1]]"
     output_grid = "[[1, 1], [0, 0]]"
