@@ -4,9 +4,9 @@ from typing import List, Optional, Tuple
 
 import numpy as np
 
-from core.dsl_nodes import AbstractTransformationCommand, Identity, RepeatGrid
-from core.dsl_interpreter import DslInterpreter
-from core.difference_utils import compute_difference_mask
+from .dsl_nodes import AbstractTransformationCommand, Identity, RepeatGrid # Adjusted import
+from .dsl_interpreter import DslInterpreter # Adjusted import
+from .difference_utils import compute_difference_mask # Adjusted import
 
 
 class SynthesisEngine:
@@ -19,6 +19,51 @@ class SynthesisEngine:
         """
         self.logger = logger or logging.getLogger(__name__)
         self.interpreter = DslInterpreter(self.logger)
+
+    def evaluate_and_sort_candidates(
+        self,
+        program_candidates: List[AbstractTransformationCommand],
+        input_grid: np.ndarray,
+        output_grid: np.ndarray,
+        top_k: Optional[int] = None
+    ) -> List[Tuple[AbstractTransformationCommand, float]]:
+        """
+        Evaluates given program candidates, scores them, sorts, and returns top_k.
+        """
+        candidates_with_scores: List[Tuple[AbstractTransformationCommand, float]] = []
+
+        for program in program_candidates:
+            try:
+                candidate_output = self.interpreter.execute_program(program, input_grid)
+            except Exception as e:
+                self.logger.warning(f"Program execution failed for candidate {program}: {e}", exc_info=True)
+                continue  # Skip this candidate
+
+            if candidate_output.shape != output_grid.shape:
+                self.logger.debug(f"Candidate {program} output shape mismatch. Got {candidate_output.shape}, expected {output_grid.shape}. Assigning score 0.")
+                # Optionally, assign a score of 0 or a very low score
+                # candidates_with_scores.append((program, 0.0)) 
+                # For now, we'll just skip candidates with shape mismatch from scoring positively.
+                continue
+
+            # Compute a simple similarity score
+            total_cells = output_grid.size
+            if total_cells == 0: # Avoid division by zero for empty grids
+                score = 1.0 if candidate_output.size == 0 else 0.0
+            else:
+                matching_cells = np.sum(candidate_output == output_grid)
+                score = matching_cells / total_cells
+            
+            self.logger.debug(f"Candidate {program} scored {score:.3f}")
+            candidates_with_scores.append((program, score))
+
+        # Sort descending by score
+        candidates_with_scores.sort(key=lambda x: x[1], reverse=True)
+
+        # Return top_k candidates if top_k is specified
+        if top_k is not None:
+            return candidates_with_scores[:top_k]
+        return candidates_with_scores
 
     def synthesize_matching_programs(
         self,
