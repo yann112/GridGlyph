@@ -2,7 +2,7 @@ import pytest
 import os
 from dotenv import load_dotenv
 
-from llm import OpenRouterClient
+from core.llm import OpenRouterClient
 
 load_dotenv()
 

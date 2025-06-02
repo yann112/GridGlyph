@@ -83,3 +83,39 @@ This working baseline enables practical testing on real ARC puzzles early. Once 
 - Log assumptions, failures, and edge cases for continuous improvement.
 
 ---
+
+## General Structure
+arc_solver/
+│
+├── agents/
+│   ├── analyze_agent.py            # AnalyzeAgent class, prompt templates, reasoning logic
+│   ├── synthesize_agent.py         # SynthesizeAgent class, prompt templates, reasoning logic
+│   ├── orchestrator_agent.py       # Multi-tool orchestrator combining both agents + tool calls
+│   └── base_agent.py               # Abstract agent base class/interfaces
+│
+├── tools/
+│   ├── grid_analyzer_tool.py       # LangChain Tool wrapper for feature extraction & analysis
+│   ├── program_synthesizer_tool.py # Tool wrapper for program synthesis engine
+│   ├── program_executor_tool.py    # Tool wrapper for DSL interpreter execution
+│   └── grid_diff_tool.py           # (Optional) Tool to diff grids / compare outputs
+│
+├── core/
+│   ├── feature_extractor.py        # Core logic to extract features from grids
+│   ├── program_synthesizer.py      # Custom synthesis framework code
+│   ├── dsl_interpreter.py          # DSL interpreter to run candidate programs
+│   └── utils.py                    # Utility functions (grid handling, logging, validation)
+│
+├── prompts/
+│   ├── analyze_prompts.py          # Prompt templates for AnalyzeAgent
+│   ├── synthesize_prompts.py       # Prompt templates for SynthesizeAgent
+│   └── orchestrator_prompts.py     # Prompts guiding multi-tool iterative reasoning
+│
+├── tests/
+│   ├── test_analyze_agent.py
+│   ├── test_synthesize_agent.py
+│   ├── test_tools.py
+│   └── test_core.py
+│
+├── main.py                        # Entry point to run the full system or individual agents
+├── config.py                      # Configs: API keys, models, LangChain settings, environment
+└── README.md

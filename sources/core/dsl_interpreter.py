@@ -1,6 +1,6 @@
 import logging
 import numpy as np
-from dsl_nodes import AbstractTransformationCommand
+from core.dsl_nodes import AbstractTransformationCommand
 
 
 class DslInterpreter:

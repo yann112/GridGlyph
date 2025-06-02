@@ -2,7 +2,7 @@ import numpy as np
 import logging
 import pytest
 
-from features_analysis import ProblemAnalyzer
+from core.features_analysis import ProblemAnalyzer
 
 
 @pytest.fixture
