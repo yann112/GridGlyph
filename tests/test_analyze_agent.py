@@ -1,4 +1,5 @@
 import pytest
+import numpy as np
 from core.llm import OpenRouterClient
 from agents.analyze_agent import AnalyzeAgent
 
@@ -7,8 +8,19 @@ def test_analyze_agent_returns_summary():
     llm = OpenRouterClient()
     agent = AnalyzeAgent(llm)
 
-    input_grid = "[[0, 0], [1, 1]]"
-    output_grid = "[[1, 1], [0, 0]]"
+    input_grid = np.array([
+        [7, 9],
+        [4, 3]
+    ])
+
+    output_grid = np.array([
+        [7, 9, 7, 9, 7, 9],
+        [4, 3, 4, 3, 4, 3],
+        [7, 9, 7, 9, 7, 9],
+        [4, 3, 4, 3, 4, 3],
+        [7, 9, 7, 9, 7, 9],
+        [4, 3, 4, 3, 4, 3]
+    ])
 
     result = agent.analyze(input_grid, output_grid)
 

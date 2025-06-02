@@ -8,6 +8,7 @@ import logging
 
 from agents.analyze_agent import AnalyzeAgent
 from core.llm import OpenRouterClient, LLMClient
+from core.features_analysis import ProblemAnalyzer
 
 class GridAnalyzerInput(BaseModel):
     input_grid: List[List[int]] = Field(..., description="The input ARC grid.")
@@ -24,7 +25,7 @@ class GridAnalyzerTool(BaseTool):
     def __init__(self, llm: LLMClient = None, **kwargs):
         super().__init__(**kwargs)
         llm = llm or OpenRouterClient()
-        self._agent = AnalyzeAgent(llm=llm)
+        self._agent = AnalyzeAgent(llm=llm, analyzer=ProblemAnalyzer())
 
     def _run(self, input_grid: List[List[int]], output_grid: List[List[int]], prompt_hint: Optional[str] = None):
         try:
