@@ -1,4 +1,3 @@
-langchain
-dotenv
-opencv-python
-pytest
+pytest==8.3.5
+opencv-python==4.11.0.86
+dotenv==0.9.9

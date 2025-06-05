@@ -21,6 +21,8 @@
             "args": [
                 // "-k", "test_main_part_predict_no_error",
                 // "-k", "test_unit_format_dataset_single_batch"
+                // "-k", "test_program_synthesizer_tool"
+                "-k", "test_synthesis_engine"
             ],
             "console": "integratedTerminal",
             "justMyCode": true

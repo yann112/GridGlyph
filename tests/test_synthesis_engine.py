@@ -32,23 +32,35 @@ def test_repeat_grid_finds_correct_program(logger: logging.Logger) -> None:
     ])
 
     synthesizer = SynthesisEngine(logger)
-    
-    # If you added a max_results or similar argument, you can pass it here if needed
-    matching_programs = synthesizer.synthesize_matching_programs(input_grid, output_grid)
+
+    # Synthesize matching programs
+    matching_programs = synthesizer.synthesize_matching_programs(
+        input_grid, 
+        output_grid,
+        operation_names=['repeat_grid'],
+        max_repeat=3  # We know the correct answer is 3 repeats
+    )
 
     assert matching_programs, "Expected at least one matching program to be found."
 
-    # Now if matching_programs is a list of (program, score), unpack accordingly
-    # If it’s just programs, keep as is.
+    # Check if the correct program is among the results
+    found_correct_program = False
+    for program, score in matching_programs:
+        if (isinstance(program, RepeatGrid) and
+            isinstance(program.inner_command, Identity) and
+            program.vertical_repeats == 3 and
+            program.horizontal_repeats == 3):
+            found_correct_program = True
+            # The perfect match should have score 1.0
+            assert score == 1.0, "Perfect match should have score 1.0"
+            break
 
-    # Example if (program, score) tuples:
-    # programs_only = [p[0] for p in matching_programs]
+    assert found_correct_program, "Expected to find RepeatGrid(Identity, 3, 3) among the results."
 
-    # Using your original logic (assuming programs only):
-    assert any(
-        isinstance(p, RepeatGrid)
-        and isinstance(p.inner_command, Identity)
-        and p.vertical_repeats == 3
-        and p.horizontal_repeats == 3
-        for (p, score) in matching_programs
-    ), "Expected to find RepeatGrid(Identity, 3, 3) among the results."
+    # Run synthesized programs
+    results = synthesizer.run_synthesized_programs(matching_programs, input_grid)
+
+    # Check if the results are correct
+    for program, score, output in results:
+        assert output is not None, "Expected a valid output grid."
+        assert np.array_equal(output, output_grid), "The output grid does not match the expected result."

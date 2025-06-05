@@ -1,43 +1,25 @@
 import pytest
 import numpy as np
-from core.llm import OpenRouterClient
-from agents.synthesize_agent import SynthesizeAgent
-from core.synthesis_engine import SynthesisEngine
-
+from tools.program_synthesizer_tool import ProgramSynthesizerTool
 
 @pytest.mark.integration
-def test_synthesize_agent_proposes_repeatgrid_dsl():
-    llm = OpenRouterClient()
-    synthesizer = SynthesisEngine()
-    agent = SynthesizeAgent(llm, synthesizer)
+def test_program_synthesizer_tool():
+    # Initialize the tool
+    tool = ProgramSynthesizerTool()
 
-    # Given - Grids that need 3x3 repetition
-    input_grid = np.array([
-        [7, 9],
-        [4, 3]
-    ])
-    
-    output_grid = np.array([
-        [7, 9, 7, 9, 7, 9],
-        [4, 3, 4, 3, 4, 3],
-        [7, 9, 7, 9, 7, 9],
-        [4, 3, 4, 3, 4, 3],
-        [7, 9, 7, 9, 7, 9],
-        [4, 3, 4, 3, 4, 3]
-    ])
-    
-    analysis_summary = "Grid needs 3x3 repetition"
+    # Define input and output grids
+    input_grid = [[0, 0], [1, 1]]
+    output_grid = [[1, 1], [0, 0]]
+    analysis_summary = "Colors are inverted. Pattern is symmetric. Recoloring may be required."
 
-    # When
-    result = agent.synthesize(str(input_grid.tolist()), 
-                            str(output_grid.tolist()), 
-                            analysis_summary)
+    # Call the tool's _run method
+    result = tool._run(input_grid, output_grid, analysis_summary)
 
-    # Then - Check for DSL command format
-    assert "repeat_grid" in result.lower(), "Missing repeat_grid command"
-    assert "3" in result, "Missing repetition count"
-    
-    # Optional: Check for proper DSL structure
-    assert "(" in result and ")" in result, "Malformed DSL command"
-    assert "identity()" in result.lower() or "inner_command" in result.lower(), \
-           "Missing base transformation"
+    # Check if the result is not an error message
+    assert result != "Error: No valid programs found", "No valid programs found"
+
+    # Convert the result to a list of lists for comparison
+    result_grid = eval(result)
+
+    # Check if the result grid matches the expected output grid
+    assert result_grid == output_grid, f"Unexpected result grid: {result_grid}"

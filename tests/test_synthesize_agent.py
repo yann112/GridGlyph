@@ -16,6 +16,6 @@ def test_synthesize_agent_returns_program():
 
     result = agent.synthesize(input_grid, output_grid, analysis_summary)
 
-    assert result is not None and result.strip() != "", "Synthesize agent returned empty program"
-    assert "dsl" in result.lower() or "program" in result.lower() or "transform" in result.lower(), \
+    assert result is not None and len(result) > 0, "Synthesize agent returned empty program list"
+    assert any("dsl" in item.lower() or "program" in item.lower() or "transform" in item.lower() for item in result), \
         f"Unexpected program output: {result}"
