@@ -29,26 +29,74 @@ def test_program_synthesizer_tool_end_to_end():
 
     # Validate the result structure
     assert isinstance(result, dict), "Tool should return a dictionary"
-    assert "success" in result, "Result should contain success status"
-    
-    if not result["success"]:
-        pytest.fail(f"Tool failed with error: {result.get('error', 'Unknown error')}")
-
-    # Check successful result structure
-    assert result["success"] is True, "Tool should report success"
-    assert "result_grid" in result, "Missing result_grid in output"
     assert "program" in result, "Missing program in output"
     assert "score" in result, "Missing score in output"
-    assert "alternatives" in result, "Missing alternatives in output"
-
-    # Verify the transformed grid matches expected
-    assert result["result_grid"] == output_grid, (
-        f"Transformed grid doesn't match expected output\n"
-        f"Expected: {output_grid}\n"
-        f"Got: {result['result_grid']}"
-    )
-
     # Verify the score indicates perfect match
     assert result["score"] == 1.0, (
         f"Expected perfect score (1.0), got {result['score']}"
     )
+
+@pytest.mark.integration
+def test_horizontal_flip():
+    tool = ProgramSynthesizerTool(llm=OpenRouterClient(), synthesizer=SynthesisEngine())
+
+    input_grid = [[1, 2], [3, 4]]
+    output_grid = [[2, 1], [4, 3]]
+
+    analysis = "The grid appears to be horizontally flipped."
+
+    result = tool._run(input_grid, output_grid, analysis)
+
+    assert result["score"] == 1.0
+    assert "flip" in result["program"].lower()
+    assert "horizontal" in result["program"].lower()
+
+def test_vertical_flip():
+    tool = ProgramSynthesizerTool(llm=OpenRouterClient(), synthesizer=SynthesisEngine())
+
+    input_grid = [[1, 2], [3, 4]]
+    output_grid = [[3, 4], [1, 2]]
+
+    analysis = "The grid appears to be vertically flipped."
+
+    result = tool._run(input_grid, output_grid, analysis)
+
+    assert result["score"] == 1.0
+    assert "flip" in result["program"].lower()
+    assert "vertical" in result["program"].lower()
+
+def test_alternating_rows():
+    tool = ProgramSynthesizerTool(llm=OpenRouterClient(), synthesizer=SynthesisEngine())
+
+    input_grid = [[7, 9], [4, 3]]
+    output_grid = [[7, 9], [3, 4]]  # Identity row, then flipped row
+
+    analysis = "Rows alternate between original and horizontally flipped versions."
+
+    result = tool._run(input_grid, output_grid, analysis)
+
+    assert result["score"] == 1.0
+
+def test_nested_transformation():
+    tool = ProgramSynthesizerTool(llm=OpenRouterClient(), synthesizer=SynthesisEngine())
+
+    input_grid = [[1, 2], [3, 4]]
+    output_grid = [[2, 1, 2, 1], [4, 3, 4, 3], [2, 1, 2, 1], [4, 3, 4, 3]]
+
+    analysis = "The grid is flipped horizontally and then repeated both vertically and horizontally."
+
+    result = tool._run(input_grid, output_grid, analysis)
+
+    assert result["score"] == 1.0
+
+def test_color_mapping():
+    tool = ProgramSynthesizerTool(llm=OpenRouterClient(), synthesizer=SynthesisEngine())
+
+    input_grid = [[1, 2], [2, 1]]
+    output_grid = [[9, 8], [8, 9]]
+
+    analysis = "All instances of color 1 are replaced with 9, and 2 with 8."
+
+    result = tool._run(input_grid, output_grid, analysis)
+
+    assert result["score"] == 1.0

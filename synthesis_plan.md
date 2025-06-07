@@ -1,120 +1,45 @@
-# ARC Solver — Program Synthesis Focused Plan
+I am working on building a program synthesis system to solve ARC puzzles. The synthesis engine needs to be able to generate and test programs that transform input grids into output grids. 
 
-## Objective
-Develop a program synthesis system in Python to automatically generate transformation programs that solve ARC puzzles by mapping input grids to output grids.
+My goal is to build a flexible synthesis engine that can work at multiple levels: grid-level transformations like RepeatGrid and FlipGrid, row/column-level combinators like Alternate(first, second), and pixel-level functions such as "flip if row index is odd". 
 
----
+The core design principles are modularity, strategy awareness, hybrid transformation support (DSL + function-based), extensibility, and testability. 
 
-## Generic Plan: Synthesis-Centric Approach
+Here is my step-by-step plan for the synthesis engine: 
 
-### 1. Design a Domain-Specific Language (DSL)
-- Define a minimal but expressive language to represent grid transformations, such as:
-  - Selecting regions by color or shape
-  - Geometric transforms (translate, rotate, flip)
-  - Color modifications
-  - Cell-wise operations and compositions
-- The DSL should be easy to interpret and execute on grids.
+Step 1: Define supported transformation types including Identity, FlipGridHorizontally, RepeatGrid, Alternate, and FunctionBasedTransformation. Each should have a describe method and synthesis rules metadata to guide search. 
 
-### 2. Implement a Program Interpreter / Executor
-- Build an interpreter that applies DSL programs to input grids and produces output grids.
-- Include error checking and output validation.
+Step 2: Implement a DSL interpreter that can execute any valid transformation tree using command.execute(input_grid: np.ndarray) -> np.ndarray. This includes logging, shape validation, and error handling. 
 
-### 3. Develop a Search / Synthesis Engine
-- Create a system that enumerates or searches DSL programs, aiming to find one that transforms the input grid to the output grid.
-- Use strategies like:
-  - Enumerative search by increasing program length
-  - Pruning using difference masks or partial evaluation
-  - Heuristic-guided search or constraint solving (optional)
+Step 3: Enhance the synthesis engine to support both DSL node enumeration and dynamic generation of pixel-level Python functions. It should score candidates based on match quality and use analysis insights to guide search. 
 
-### 4. Incorporate Program Ranking and Validation
-- Score candidate programs by correctness and simplicity (e.g., minimal size).
-- Validate candidates on all given examples per puzzle.
+Key features include hybrid synthesis (try both DSL and function-based programs), dynamic arity combinators like Alternate, strategy-guided search using embedded hints, and confidence scoring using exact match or symbolic logic. 
 
-### 5. Build a Modular Pipeline for ARC Puzzles
-- For each puzzle:
-  - Extract input/output grids
-  - Run synthesis to generate candidate programs
-  - Select best program(s) and apply them to unseen inputs if any
-  - Evaluate success
+Step 4: Add support for nested transformations like RepeatGrid(Alternate(...)) up to depth 2–3. This requires dynamic arity handling via synthesis_rules["arity"], combination generation using itertools.product, and structured logging of all tried combinations. 
 
----
+Step 5: Improve candidate scoring by moving beyond simple cell-match ratio. Consider structural similarity, program complexity (prefer short programs), and optional symbolic verification using Z3. 
 
-# ARC Solver — Step-by-Step Synthesis Approach
+Step 6: Integrate with the orchestrator so the synthesis engine responds to strategy hints like pattern_focus, transformation_focus, and hybrid_focus. 
 
-## Step 1: DSL Design and Grid Representation
+Deliverables include strategy-aware synthesis, compatibility with existing orchestrator interface, and clear tool wrapper support. 
 
-- Define the DSL primitives for transformations (e.g., `select_color(c)`, `translate(dx, dy)`, `fill_color(c)`).
-- Implement grid representation as 2D NumPy arrays.
+Step 7: Write comprehensive tests that verify basic transformations work, combinator nesting works, function-based transformations work, and strategy hints improve success rate. Logs of all attempted programs should be generated and test coverage expanded. 
 
-**Deliverable:** DSL specification and grid data structure ready.
+Optional future steps include Z3 constraint verification, LLM-guided synthesis, dynamic strategy switching, and learned heuristics to determine what works best for certain patterns. 
 
----
+File structure will eventually be:
+arc_solver/
+core/
+dsl_nodes.py
+dsl_interpreter.py
+synthesis_engine.py
+tests/
+test_synthesis_engine.py 
 
-## Step 2: Implement DSL Interpreter
-
-- Write functions that apply DSL commands to grids.
-- Ensure chaining/composition of commands is supported.
-
-**Deliverable:** Interpreter that takes a program (list/tree of commands) and an input grid, outputs transformed grid.
-
----
-
-## Step 3: Difference Mask and Heuristic Pruning
-
-- Implement functions to compute difference masks between input and output grids.
-- Use these masks to prune program search space (e.g., only transform regions with differences).
-
-**Deliverable:** Pruning heuristics to reduce search complexity.
-
----
-
-## Step 4: Enumerative Program Synthesis Engine
-
-- Build a generator that enumerates all possible DSL programs up to a certain length/complexity.
-- Apply pruning heuristics at each generation step to discard unlikely candidates.
-- Test candidate programs on the input grid to check if output matches.
-
-**Deliverable:** Search engine capable of returning candidate programs that solve simple puzzles.
-
----
-
-## Step 5: Program Ranking and Selection
-
-- Implement scoring based on correctness (exact match) and program simplicity.
-- Select the best candidate program for each puzzle.
-
-**Deliverable:** Ranking system to identify best transformation program.
-
----
-
-## Step 6: Integration and Testing on ARC Puzzle Set
-
-- Run the synthesis pipeline on a subset of ARC puzzles.
-- Evaluate accuracy and runtime performance.
-- Document failures for improvement.
-
-**Deliverable:** Baseline solver with measurable results on simple puzzles.
-
----
-
-## Optional Future Steps
-
-- Introduce constraint solvers or SMT solvers to speed up synthesis.
-- Add heuristic or learned guidance to prioritize promising program paths.
-- Extend DSL expressivity while managing search complexity.
-- Incorporate meta-learning to generalize across puzzles.
-
----
-
-# Summary Table
-
-| Step                       | Purpose                          | Deliverable                            |
-|----------------------------|---------------------------------|--------------------------------------|
-| DSL Design                 | Define transformation language   | DSL primitives and grid data structure|
-| Interpreter Implementation | Execute DSL programs             | Interpreter for DSL on grids         |
-| Difference Mask            | Prune search space               | Functions to identify changed cells  |
-| Enumerative Synthesis      | Search for correct programs      | Generator and search engine           |
-| Program Ranking            | Choose best candidate            | Scoring and selection mechanism       |
-| Integration & Testing      | Evaluate on real puzzles         | Working baseline solver               |
-
----
+Summary table:
+Step 1: Define transformation language → DSL primitives
+Step 2: Execute DSL programs → Working interpreter
+Step 3: Try grid + pixel-level logic → Enumeration + function support
+Step 4: Nest transformations → Alternate, RepeatGrid
+Step 5: Confidence scoring → Enhanced scoring system
+Step 6: Connect to full system → Tool wrapper compatibility
+Step 7: Validate correctness → Expanded test suite 

@@ -1,7 +1,11 @@
 from typing import List, Tuple, Optional
 import numpy as np
 import logging
+import json
+import inspect
 from core.dsl_nodes import AbstractTransformationCommand
+from core.transformation_factory import TransformationFactory
+
 
 class SynthesizeAgent:
     def __init__(self, llm, synthesizer, logger: logging.Logger = None):
@@ -15,39 +19,71 @@ class SynthesizeAgent:
         self.synthesizer = synthesizer
         self.logger = logger or logging.getLogger(__name__)
 
+
+    def _build_operation_documentation(self) -> str:
+        """Build JSON-formatted operation documentation."""
+        
+        docs = []
+        examples = []
+        
+        for op_name, op_class in TransformationFactory.OPERATION_MAP.items():
+            try:
+                rules = op_class.synthesis_rules
+                
+                # Get parameter info
+                sig = inspect.signature(op_class.__init__)
+                param_names = [name for name in sig.parameters.keys() 
+                            if name not in ['self', 'logger']]
+                
+                dict_doc = {
+                    "operation name": op_name,
+                    "list parameters:": param_names,
+                    "synthesis rules": rules,
+                    "decription": op_class.describe()
+                }
+                docs.append(dict_doc)
+            except Exception as e:
+                self.logger.error(f"Failed to build documentation for operation '{op_name}': {str(e)}")
+                continue
+        
+        return json.dumps(docs, indent=2)
+    
+
     def generate_program_candidates(self, input_grid: np.ndarray, output_grid: np.ndarray, 
-                                 analysis_summary: str) -> List[str]:
-        """Generates multiple DSL program candidates via LLM.
-        
-        Args:
-            input_grid: Input grid as numpy array
-            output_grid: Desired output grid as numpy array
-            analysis_summary: Text analysis of the transformation
-            
-        Returns:
-            List of candidate program strings in DSL format
-        """
+                                analysis_summary: str) -> List[str]:
+
+        operation_docs = self._build_operation_documentation()
+
         prompt = f"""
-        Given these grids and analysis, suggest 3-5 DSL programs that could transform:
-        
-        Input Grid: 
-        {input_grid}
-        
-        Output Grid: 
-        {output_grid}
-        
-        Analysis: 
-        {analysis_summary}
-        
-        Return ONLY valid DSL commands, one per line. Example:
-        repeat_grid(identity(), 3, 3)
-        flip_h(identity())
-        rotate90(identity())
-        """
+            You are a DSL program synthesizer. Generate 3-5 transformation programs in JSON format.
+
+            Available Operations:
+            {operation_docs}
+
+            Input Grid: {input_grid.tolist()}
+            Output Grid: {output_grid.tolist()}
+            Analysis: {analysis_summary}
+
+            Return each program as a JSON object with this structure:
+            {{"operation": "operation_name", "parameters": {{...}}}}
+
+            For operations requiring inner commands, nest them:
+            {{"operation": "repeat_grid", "parameters": {{"inner_command": {{"operation": "identity", "parameters": {{}}}}, "vertical_repeats": 2, "horizontal_repeats": 3}}}}
+
+            IMPORTANT: Return only raw JSON objects, one per line. 
+            DO NOT use markdown code blocks, backticks, or any formatting.
+            DO NOT add explanations or comments.
+            Each line should be a valid JSON object that starts with {{ and ends with }}.
+
+            Example output format:
+            {{"operation": "flip_h", "parameters": {{}}}}
+            {{"operation": "repeat_grid", "parameters": {{"inner_command": {{"operation": "identity", "parameters": {{}}}}, "vertical_repeats": 2, "horizontal_repeats": 2}}}}
+            """
+
         response = self.llm(prompt).strip()
         candidates = [line.strip() for line in response.split('\n') if line.strip()]
-        self.logger.debug(f"Generated {len(candidates)} program candidates: {candidates}")
         return candidates
+
 
     def parse_and_validate(self, program_str: str, input_grid: np.ndarray, 
                          output_grid: np.ndarray) -> Optional[Tuple[AbstractTransformationCommand, float]]:
