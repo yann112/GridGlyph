@@ -1,0 +1,35 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python : fichier actif",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "tests arcprize2025",
+            "type": "python",
+            "request": "launch",
+            "module": "pytest",
+            "cwd": "/workspaces/arcprize2025",
+            "args": [
+                // "-k", "test_main_part_predict_no_error",
+                // "-k", "test_unit_format_dataset_single_batch"
+                // "-k", "test_program_synthesizer_tool"
+                // "-k", "test_synthesis_engine"
+                // "-k", "test_synthesize_agent"
+                "-k", "test_main_orchestrator"
+                // "-k", "test_llm.py"
+
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+    ]
+}

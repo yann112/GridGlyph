@@ -240,22 +240,16 @@ class AnalysisResult:
             'relational_color': {},
             'relational_density': {}
         }
-        self.possible_transforms = []
-        self.confidence_scores = []
+
 
     def add_features(self, feature_type: str, features: Dict):
         if feature_type not in self.features:
             self.features[feature_type] = {}
         self.features[feature_type].update(features)
 
-    def suggest_transforms(self, transforms: List[str], confidences: List[float]):
-        self.possible_transforms = transforms
-        self.confidence_scores = confidences
-
     def to_dict(self) -> Dict:
         return {
             'features': self.features,
-            'suggested_transforms': list(zip(self.possible_transforms, self.confidence_scores))
         }
 
 
@@ -279,12 +273,6 @@ class ProblemAnalyzer:
                 for k, v in features.items():
                     self.result.add_features(k, v)
 
-            # Example transform suggestion based on relational shape features
-            rel_shape = self.result.features.get('relational_shape', {})
-            if rel_shape.get('row_ratio', 0) > 1 and rel_shape.get('col_ratio', 0) > 1:
-                self.result.suggest_transforms(['RepeatGrid'], [0.9])
-            else:
-                self.result.suggest_transforms([], [])
 
             return self.result
         except Exception as e:

@@ -7,21 +7,43 @@ from core.llm import OpenRouterClient
 from core.synthesis_engine import SynthesisEngine
 from tools.main_orchestrator import ARCProblemOrchestrator
 
+
 @pytest.fixture
-def setup_orchestrator():
-    # Initialize all real components
-    llm = OpenRouterClient()  # Your actual LLM client
+def stable_llm_client():
+    """
+    Fixture providing a stable OpenRouter client optimized for consistent program synthesis.
     
+    Uses deterministic settings:
+    - temperature=0.0: Eliminates randomness for identical outputs
+    - top_p=0.1: Restricts token sampling for consistency  
+    - top_k=1: Always picks most likely token
+    - repetition_penalty=1.0: Neutral repetition handling
+    
+    Returns:
+        OpenRouterClient: Configured client for stable program generation
+    """
+    return OpenRouterClient(
+        model="mistralai/mistral-small-3.1-24b-instruct",
+        temperature=0.0,      # Completely deterministic
+        top_p=0.1,           # Very restrictive sampling
+        top_k=1,             # Most likely token only
+        repetition_penalty=1.0,  # Neutral repetition
+        max_tokens=800,      # Sufficient for code generation
+    )
+
+
+@pytest.fixture
+def setup_orchestrator(stable_llm_client):
+
     # Use tools instead of agents directly
-    analyze_tool = GridAnalyzerTool(llm=llm)
+    analyze_tool = GridAnalyzerTool(llm=stable_llm_client)
     synth_engine = SynthesisEngine()
-    synth_tool = ProgramSynthesizerTool(llm=llm, synthesizer=synth_engine)
+    synth_tool = ProgramSynthesizerTool(llm=stable_llm_client, synthesizer=synth_engine)
     
     # Create orchestrator with real dependencies
     orchestrator = ARCProblemOrchestrator(
-        llm=llm,
-        analyze_tool=analyze_tool,
-        synth_tool=synth_tool
+        analyzer=analyze_tool,
+        synthesizer=synth_tool
     )
     return orchestrator
 

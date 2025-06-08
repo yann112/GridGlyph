@@ -25,13 +25,24 @@ class AnalyzeAgent:
             return d
 
     def _compose_summary(self, analysis_result, hint, input_grid=None, output_grid=None):
-        instruction = (
-            "You are an expert ARC puzzle analyzer. "
-            "Given the analysis results below comparing the input and output grids, "
-            "please explain in clear, concise language the main transformations, patterns, "
-            "or relationships that led from input to output. "
-            "Focus on relevant features and suggested transforms. "
-            "If there are hints, incorporate them to refine your explanation.\n\n"
+        instruction = ("""
+            As an ARC puzzle strategist:
+
+            1. FIRST identify the most obvious whole-grid transformation
+            2. THEN examine where the output deviates from this simple pattern
+            3. FINALLY propose minimal operations to explain deviations
+
+            For each step:
+            - Quantify explanatory power (% of output explained)
+            - Describe deviations precisely (location and nature)
+            - Suggest specific, testable operations
+
+            Format response as:
+            1. Primary Pattern: [description] (confidence: X%, coverage: Y%)
+            2. Key Deviation: [location and type] 
+            3. Suggested Operation: [concrete transform]
+            4. Verification: [how to test this hypothesis]\n\n
+                """
         )
 
         summary = ""
@@ -43,10 +54,6 @@ class AnalyzeAgent:
         clean_features = self._clean_feature_dict(analysis_result.features)
         for feature_type, features in clean_features.items():
             summary += f"\n{feature_type}:\n{features}\n"
-
-        if analysis_result.possible_transforms:
-            transforms_conf = list(zip(analysis_result.possible_transforms, analysis_result.confidence_scores))
-            summary += f"\nSuggested transforms (confidence): {transforms_conf}\n"
 
         if hint:
             summary += f"\nHints: {hint}\n"
