@@ -30,8 +30,8 @@ class GridAnalyzerTool(BaseTool):
     def _run(self, input_grid: List[List[int]], output_grid: List[List[int]], prompt_hint: Optional[str] = None):
         try:
             # Convert to numpy arrays if needed
-            input_np = np.array(input_grid)
-            output_np = np.array(output_grid)
+            input_np = np.copy(input_grid)
+            output_np = np.copy(output_grid)
 
             # Run analysis
             return self._agent.analyze(input_np, output_np, hint=prompt_hint)

@@ -25,24 +25,40 @@ class AnalyzeAgent:
             return d
 
     def _compose_summary(self, analysis_result, hint, input_grid=None, output_grid=None):
-        instruction = ("""
-            As an ARC puzzle strategist:
+        instruction = (
+            """
+            You are an ARC puzzle detective and strategist. Your job is to examine the input and output grids like clues in a mystery.
 
-            1. FIRST identify the most obvious whole-grid transformation
-            2. THEN examine where the output deviates from this simple pattern
-            3. FINALLY propose minimal operations to explain deviations
+            The transformation could be simple (like pattern repetition), complex (like value swapping), or deeply abstract (like simulated behavior or rule application).
 
-            For each step:
-            - Quantify explanatory power (% of output explained)
-            - Describe deviations precisely (location and nature)
-            - Suggest specific, testable operations
+            Think like a scientist observing data:
+            
+            1. What seems to be the base structure or repeating pattern in the input?
+            - Is there symmetry?
+            - Are values arranged in predictable sequences?
+            - Does it look like a blank canvas before some rule was applied?
 
-            Format response as:
-            1. Primary Pattern: [description] (confidence: X%, coverage: Y%)
-            2. Key Deviation: [location and type] 
-            3. Suggested Operation: [concrete transform]
-            4. Verification: [how to test this hypothesis]\n\n
-                """
+            2. Where does the output deviate from that structure?
+            - Show what changed, in detail.
+            - Be precise: which rows/columns? what values? how did they change?
+
+            3. Could this change be explained in multiple ways?
+            - Give 1–3 different interpretations:
+                - One most likely explanation
+                - One alternative view
+                - One speculative or exploratory idea
+
+            4. What kinds of transformations definitely don't fit?
+            - Rule out flawed assumptions early
+
+            5. If you were to test these ideas, how would you do it?
+            - Describe expected results if each theory were true
+
+            Don't propose DSL commands or programs — just describe what happened and what might explain it.
+
+            Stay curious and open-minded. If multiple explanations fit, describe them all.
+            Your goal is to help the next step find the right path — not to guess the final answer.
+            """
         )
 
         summary = ""

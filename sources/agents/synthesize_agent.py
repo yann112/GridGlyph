@@ -20,21 +20,33 @@ class SynthesizeAgent:
         self.logger = logger or logging.getLogger(__name__)
 
 
-    def _build_operation_documentation(self) -> str:
-        """Build JSON-formatted operation documentation."""
+    def _build_operation_documentation(self, allowed_operations: List[str] = None) -> str:
+        """
+        Build JSON-formatted operation documentation.
         
+        Args:
+            allowed_operations (List[str], optional): If provided, only include these operations.
+                                                    Defaults to None (include all operations).
+        
+        Returns:
+            str: JSON string of operation documentation.
+        """
         docs = []
-        examples = []
-        
+
         for op_name, op_class in TransformationFactory.OPERATION_MAP.items():
+            # Skip if filtering is active and this op isn't in the allow list
+            if allowed_operations is not None and op_name not in allowed_operations:
+                self.logger.debug(f"Skipping operation '{op_name}' - not in allowed list.")
+                continue
+
             try:
                 rules = op_class.synthesis_rules
-                
+
                 # Get parameter info
                 sig = inspect.signature(op_class.__init__)
-                param_names = [name for name in sig.parameters.keys() 
+                param_names = [name for name in sig.parameters.keys()
                             if name not in ['self', 'logger']]
-                
+
                 dict_doc = {
                     "operation name": op_name,
                     "list parameters:": param_names,
@@ -43,45 +55,173 @@ class SynthesizeAgent:
                 }
                 docs.append(dict_doc)
             except Exception as e:
-                self.logger.error(f"Failed to build documentation for operation '{op_name}': {str(e)}")
+                self.logger.error(f"Failed to build documentation for operation '{op_name}': {str(e)}", exc_info=True)
                 continue
-        
+
         return json.dumps(docs, indent=2)
     
 
-    def generate_program_candidates(self, input_grid: np.ndarray, output_grid: np.ndarray, 
-                                analysis_summary: str) -> List[str]:
-
+    def _filter_relevant_operations(self, input_grid: np.ndarray, output_grid: np.ndarray,
+                                    analysis_summary: str) -> List[str]:
+        """
+        Ask the LLM to narrow down which operations are relevant based on analysis.
+        """
         operation_docs = self._build_operation_documentation()
+        self.logger.debug("Starting operation filtering...")
+        self.logger.debug(f"Input Grid:\n{input_grid.tolist()}")
+        self.logger.debug(f"Output Grid:\n{output_grid.tolist()}")
+        self.logger.debug(f"Analysis Summary:\n{analysis_summary}")
 
         prompt = f"""
-            You are a DSL program synthesizer. Generate 3-5 transformation programs in JSON format.
+            You are an operation filterer. Based on the analysis, identify which operations are most relevant for transforming the input grid to match the output grid.
 
             Available Operations:
             {operation_docs}
 
             Input Grid: {input_grid.tolist()}
             Output Grid: {output_grid.tolist()}
-            Analysis: {analysis_summary}
 
-            Return each program as a JSON object with this structure:
-            {{"operation": "operation_name", "parameters": {{...}}}}
+            Analysis Summary:
+            {analysis_summary}
 
-            For operations requiring inner commands, nest them:
-            {{"operation": "repeat_grid", "parameters": {{"inner_command": {{"operation": "identity", "parameters": {{}}}}, "vertical_repeats": 2, "horizontal_repeats": 3}}}}
+            Instructions:
+            - Use the analysis as one possible interpretation, but also consider alternative transformations that could produce the same result.
+            - Include any operation that could reasonably be part of a transformation — even if it's only useful as an inner command (e.g., identity).
+            - Only exclude operations that are clearly not applicable (e.g., those that have no effect on this grid or operate on irrelevant axes).
+            - Return only a list of operation names that could explain the transformation.
+            - Exclude any operations that are clearly not applicable.
+            - Wrap your answer in triple backticks like this:
+              ```json
+              ["swap_rows_or_columns", "apply_to_row", "mask_combinator"]
+              ```
 
-            IMPORTANT: Return only raw JSON objects, one per line. 
-            DO NOT use markdown code blocks, backticks, or any formatting.
-            DO NOT add explanations or comments.
-            Each line should be a valid JSON object that starts with {{ and ends with }}.
+            Example response:
+            ```json
+            ["swap_rows_or_columns", "apply_to_row", "flip_h"]
+            ```
+        """
 
-            Example output format:
-            {{"operation": "flip_h", "parameters": {{}}}}
-            {{"operation": "repeat_grid", "parameters": {{"inner_command": {{"operation": "identity", "parameters": {{}}}}, "vertical_repeats": 2, "horizontal_repeats": 2}}}}
+        try:
+            response = self.llm(prompt).strip()
+            self.logger.info("Operation filtering response received.")
+            self.logger.debug(f"Raw filtering response:\n{response}")
+
+            start = response.find("```json") + 7
+            end = response.rfind("```")
+            if start == -1 or end == -1:
+                raise ValueError("Could not find JSON block in filtering response.")
+            content = response[start:end].strip()
+            filtered_ops = json.loads(content)
+            self.logger.info(f"Filtered operations: {filtered_ops}")
+            return filtered_ops
+        except Exception as e:
+            self.logger.error(f"Error during operation filtering: {e}", exc_info=True)
+            return []
+        
+
+    def _generate_filtered_programs(
+            self,
+            input_grid: np.ndarray,
+            output_grid: np.ndarray,
+            allowed_operations: List[str],
+            analysis_summary) -> List[str]:
             """
+            Generate candidate programs using only the filtered set of operations.
+            """
+            operation_docs = self._build_operation_documentation()
 
-        response = self.llm(prompt).strip()
-        candidates = [line.strip() for line in response.split('\n') if line.strip()]
+            # Filter operation docs to include only relevant ones
+            allowed_ops_set = set(allowed_operations)
+            try:
+                full_ops_list = json.loads(operation_docs)
+            except json.JSONDecodeError as e:
+                self.logger.error(f"Failed to parse operation docs JSON: {e}")
+                return []
+
+            filtered_docs = [
+                op for op in full_ops_list
+                if op["operation name"] in allowed_ops_set
+            ]
+            filtered_docs_str = json.dumps(filtered_docs, indent=2)
+
+            self.logger.debug("Generating programs with allowed operations:")
+            self.logger.debug(f"Allowed Operations: {allowed_ops_set}")
+            self.logger.debug(f"Filtered Operation Docs:\n{filtered_docs_str}")
+
+            prompt = f"""
+                You are a DSL program synthesizer. Generate 5–10 transformation programs in JSON format.
+
+                Available Operations:
+                {filtered_docs_str}
+
+                Input Grid: {input_grid.tolist()}
+                Output Grid: {output_grid.tolist()}
+                Analysis: {analysis_summary}
+
+                Generate transformation programs that match the Input → Output mapping.
+                Some should closely follow the provided analysis.
+                Others may propose alternative interpretations — as long as they result in the correct output.
+
+                Do not propose duplicated programs.
+
+                Return each program as a JSON object with this structure:
+                {{"operation": "operation_name", "parameters": {{...}}}}
+
+                For operations requiring inner commands, nest them:
+                {{"operation": "repeat_grid", "parameters": {{"inner_command": {{"operation": "identity", "parameters": {{}}}}, "vertical_repeats": 2, "horizontal_repeats": 3}}}}
+
+                IMPORTANT: Return only raw JSON objects, one per line. 
+                DO NOT use markdown code blocks, backticks, or any formatting.
+                DO NOT add explanations or comments.
+                Each line must be a valid JSON object that starts with {{ and ends with }}.
+
+                Example output format:
+                {{"operation": "flip_h", "parameters": {{}}}}
+                {{"operation": "repeat_grid", "parameters": {{"inner_command": {{"operation": "identity", "parameters": {{}}}}, "vertical_repeats": 2, "horizontal_repeats": 2}}}}
+                """
+
+            try:
+                response = self.llm(prompt).strip()
+                self.logger.info("Program generation completed.")
+                self.logger.debug(f"Raw generation response:\n{response}")
+
+                candidates = [line.strip() for line in response.split('\n') if line.strip()]
+                self.logger.info(f"Generated {len(candidates)} program candidates.")
+                return candidates
+            except Exception as e:
+                self.logger.error(f"Error during program generation: {e}", exc_info=True)
+                return []
+        
+
+    def generate_program_candidates(self, input_grid: np.ndarray, output_grid: np.ndarray,
+                                    analysis_summary: str) -> List[str]:
+        """
+        Main entry point: two-stage synthesis pipeline.
+        """
+        self.logger.info("Starting two-stage program synthesis...")
+        self.logger.debug("Stage 1: Filtering relevant operations")
+
+        # Stage 1: Filter relevant operations
+        relevant_ops = self._filter_relevant_operations(input_grid, output_grid, analysis_summary)
+
+        if not relevant_ops:
+            self.logger.warning("No relevant operations found. Falling back to all operations.")
+            try:
+                full_ops = json.loads(self._build_operation_documentation())
+                relevant_ops = [op["operation name"] for op in full_ops]
+                self.logger.info(f"Fallback to full operation list: {relevant_ops}")
+            except Exception as e:
+                self.logger.error(f"Failed to fallback to full operation list: {e}")
+                return []
+
+        self.logger.debug(f"Stage 2: Generating programs with filtered operations: {relevant_ops}")
+        # Stage 2: Generate programs using only relevant operations
+        candidates = self._generate_filtered_programs(input_grid, output_grid, relevant_ops, analysis_summary)
+
+        if not candidates:
+            self.logger.warning("No valid program candidates were generated.")
+
+        self.logger.info("Program synthesis complete.")
         return candidates
 
 

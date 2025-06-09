@@ -28,6 +28,7 @@ class OpenRouterClient(LLMClient):
         logger=None,
         api_key=None,
         model="mistralai/mistral-small-3.1-24b-instruct",
+        infra="deepinfra",
         max_tokens=1200,
         proxy: str = None,
         temperature=0.0,
@@ -74,6 +75,7 @@ class OpenRouterClient(LLMClient):
             raise ValueError("API key is required. Set it in the environment or pass it explicitly.")
         
         self.model = model
+        self.infra = infra
         self.max_tokens = max_tokens
         self.temperature = temperature
         self.top_p = top_p
@@ -86,6 +88,7 @@ class OpenRouterClient(LLMClient):
         self.headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
+            "X-Provider": self.infra,
         }
         
         self.proxies = None

@@ -23,12 +23,14 @@ def stable_llm_client():
         OpenRouterClient: Configured client for stable program generation
     """
     return OpenRouterClient(
-        model="mistralai/devstral-small:free",
+        # model="mistralai/devstral-small:free",
+        # model=r"deepseek/deepseek-r1-0528-qwen3-8b:free",
+        model=r"meta-llama/llama-3.1-70b-instruct",
         temperature=0.0,      # Completely deterministic
         top_p=0.1,           # Very restrictive sampling
         top_k=1,             # Most likely token only
         repetition_penalty=1.0,  # Neutral repetition
-        max_tokens=2000, 
+        max_tokens=500, 
     )
 
 @pytest.fixture
@@ -46,12 +48,14 @@ def creative_llm_client():
         OpenRouterClient: Configured client for creative program generation
     """
     return OpenRouterClient(
-        model="mistralai/devstral-small:free",
+        # model="mistralai/devstral-small:free",
+        # model=r"deepseek/deepseek-r1-0528-qwen3-8b:free",
+        model=r"meta-llama/llama-3.1-70b-instruct",
         temperature=0.7,      # Introduces randomness
         top_p=0.9,           # Wide token sampling
         top_k=50,            # Considers more tokens
         repetition_penalty=1.2, # Slightly discourages repetition
-        max_tokens=2000,
+        max_tokens=1200,
     )
 
 @pytest.fixture

@@ -1,4 +1,5 @@
 import logging
+import ast
 import numpy as np
 import json
 from core.transformation_factory import TransformationFactory
@@ -49,18 +50,47 @@ class DslInterpreter:
             raise ValueError(f"Failed to build command: {str(e)}")
 
     def _build_command_from_dict(self, cmd_dict: dict) -> AbstractTransformationCommand:
-        """Recursively build command from dictionary."""
+        """Recursively build command from dictionary with improved type handling."""
         operation = cmd_dict["operation"]
         parameters = cmd_dict.get("parameters", {})
-        
-        # Handle inner commands recursively
+
         processed_params = {}
+
         for key, value in parameters.items():
             if isinstance(value, dict) and "operation" in value:
-                # This is a nested command
+                # Recursively build nested commands
                 processed_params[key] = self._build_command_from_dict(value)
+
+            elif key == "mask_func" and isinstance(value, str):
+                # Special case: evaluate mask lambda
+                try:
+                    # Restrict builtins for security
+                    namespace = {"np": np}
+                    func = eval(value, {"__builtins__": {}}, namespace)
+                    if callable(func):
+                        processed_params[key] = func
+                    else:
+                        raise ValueError(f"'{value}' is not a callable function")
+                except Exception as e:
+                    self.logger.error(f"Failed to parse lambda '{value}': {str(e)}")
+                    raise
+
             else:
-                processed_params[key] = value
-        
-        # Create command using factory
+                # Try safe evaluation of stringified values
+                if isinstance(value, str):
+                    try:
+                        evaluated = ast.literal_eval(value)
+                        if isinstance(evaluated, list):
+                            processed_params[key] = tuple(evaluated)  # normalize to tuple
+                        else:
+                            processed_params[key] = evaluated
+                    except (SyntaxError, ValueError):
+                        # Not a Python literal, keep original string
+                        processed_params[key] = value
+                elif isinstance(value, list):
+                    # Normalize all lists to tuples
+                    processed_params[key] = tuple(value)
+                else:
+                    processed_params[key] = value
+
         return TransformationFactory.create_operation(operation, **processed_params)

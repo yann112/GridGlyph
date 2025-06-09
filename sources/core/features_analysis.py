@@ -83,6 +83,53 @@ class GenericTransformationDetector(AbstractTransformationDetector):
             'transformations': self.detect_transformations(input_grid, output_grid)
         }
     
+    def _compute_binary_difference(self, input_grid: np.ndarray, output_grid: np.ndarray) -> Dict:
+        """
+        Compute a boolean matrix indicating where the two grids differ.
+        Only valid if both grids have the same shape.
+        """
+        assert input_grid.shape == output_grid.shape, "Grids must have the same shape"
+
+        diff = input_grid != output_grid
+        return {
+            "binary_diff": diff.tolist(),
+            "change_count": int(np.sum(diff)),
+            "changed_rows": [int(i) for i, row in enumerate(diff) if any(row)],
+            "changed_columns": [int(j) for j, col in enumerate(diff.T) if any(col)]
+        }
+
+    def _compute_grid_difference(self, input_grid: np.ndarray, output_grid: np.ndarray) -> Dict:
+        """
+        Compare two grids cell-by-cell and return a structured diff.
+        Only valid for grids of the same shape.
+        """
+        assert input_grid.shape == output_grid.shape, "Grids must have the same shape"
+
+        diff = {
+            "changes": [],
+            "change_count": 0,
+            "value_mapping": {},
+            "row_changes": {},  # row index → list of changed column indices
+            "value_substitutions": []  # list of (old_value, new_value)
+        }
+
+        for i in range(input_grid.shape[0]):
+            for j in range(input_grid.shape[1]):
+                in_val = input_grid[i, j]
+                out_val = output_grid[i, j]
+                if in_val != out_val:
+                    diff["changes"].append({
+                        "position": (i, j),
+                        "before": int(in_val),
+                        "after": int(out_val)
+                    })
+                    diff["change_count"] += 1
+                    diff["row_changes"].setdefault(i, []).append(j)
+                    diff["value_substitutions"].append((int(in_val), int(out_val)))
+                    diff["value_mapping"][int(in_val)] = int(out_val)
+
+        return diff
+
     def detect_transformations(self, input_grid: np.ndarray, output_grid: np.ndarray) -> Dict:
         """Main method to detect all types of transformations"""
         transformations = {}
@@ -92,6 +139,9 @@ class GenericTransformationDetector(AbstractTransformationDetector):
         
         # Structural transformations - check if grids have same shape OR if one is contained in the other
         if input_grid.shape == output_grid.shape:
+            # Compute detailed grid difference
+            transformations.update(self._compute_binary_difference(input_grid, output_grid))
+            transformations["grid_diff"] = self._compute_grid_difference(input_grid, output_grid)
             # Same shape - check all structural transformations
             transformations.update(self._detect_row_transformations(input_grid, output_grid))
             transformations.update(self._detect_column_transformations(input_grid, output_grid))

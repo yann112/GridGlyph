@@ -62,7 +62,10 @@ class Identity(AbstractTransformationCommand):
 
     @classmethod
     def describe(cls)-> str:
-        return "Returns the input grid unchanged."
+        return """
+        Returns the input grid unchanged.
+        Useful for nested operations but should not be used alone when input and output differ.
+        """
 
 
 class RepeatGrid(AbstractTransformationCommand):
@@ -423,3 +426,56 @@ class MaskCombinator(AbstractTransformationCommand):
             Output: [[1, 3, 3],
                      [4, 5, 6]]
         """
+ 
+class ShiftRowOrColumn:
+    synthesis_rules = {
+            "type": "atomic",
+            "parameter_ranges": {
+                "row_index": [0, 9],
+                "col_index": [0, 9],
+                "shift_amount": [-5, 5],
+                "wrap": [True, False]
+            }
+        }
+
+    def __init__(self, row_index=None, col_index=None, shift_amount=1, wrap=True):
+        self.row_index = row_index
+        self.col_index = col_index
+        self.shift_amount = shift_amount
+        self.wrap = wrap
+
+    @classmethod
+    def describe(cls) -> str:
+        return """
+        Shifts a specified row or column by a given amount. Optionally wraps around or pads with zeros.
+        
+        Parameters:
+        - row_index: index of the row to shift (or None for column)
+        - col_index: index of the column to shift (or None for row)
+        - shift_amount: number of positions to shift (positive or negative)
+        - wrap: whether to wrap around (True) or pad with zeros (False)
+        """
+
+    def execute(self, grid: np.ndarray) -> np.ndarray:
+        grid = grid.copy()
+        if self.row_index is not None:
+            row = grid[self.row_index]
+            if self.wrap:
+                row = np.roll(row, self.shift_amount)
+            else:
+                if self.shift_amount > 0:
+                    row = np.concatenate([np.zeros(self.shift_amount, dtype=row.dtype), row[:-self.shift_amount]])
+                else:
+                    row = np.concatenate([row[-self.shift_amount:], np.zeros(-self.shift_amount, dtype=row.dtype)])
+            grid[self.row_index] = row
+        elif self.col_index is not None:
+            col = grid[:, self.col_index]
+            if self.wrap:
+                col = np.roll(col, self.shift_amount)
+            else:
+                if self.shift_amount > 0:
+                    col = np.concatenate([np.zeros(self.shift_amount, dtype=col.dtype), col[:-self.shift_amount]])
+                else:
+                    col = np.concatenate([col[-self.shift_amount:], np.zeros(-self.shift_amount, dtype=col.dtype)])
+            grid[:, self.col_index] = col
+        return grid.tolist()
