@@ -23,20 +23,42 @@ def stable_llm_client():
         OpenRouterClient: Configured client for stable program generation
     """
     return OpenRouterClient(
-        model="mistralai/mistral-small-3.1-24b-instruct",
+        model="mistralai/devstral-small:free",
         temperature=0.0,      # Completely deterministic
         top_p=0.1,           # Very restrictive sampling
         top_k=1,             # Most likely token only
         repetition_penalty=1.0,  # Neutral repetition
-        max_tokens=800,      # Sufficient for code generation
+        max_tokens=2000, 
     )
 
+@pytest.fixture
+def creative_llm_client():
+    """
+    Fixture providing a creative OpenRouter client optimized for diverse and creative program synthesis.
+
+    Uses creative settings:
+    - temperature=0.7: Introduces randomness for varied outputs
+    - top_p=0.9: Allows for a wide range of token sampling
+    - top_k=50: Considers a broader set of likely tokens
+    - repetition_penalty=1.2: Slightly discourages repetition
+
+    Returns:
+        OpenRouterClient: Configured client for creative program generation
+    """
+    return OpenRouterClient(
+        model="mistralai/devstral-small:free",
+        temperature=0.7,      # Introduces randomness
+        top_p=0.9,           # Wide token sampling
+        top_k=50,            # Considers more tokens
+        repetition_penalty=1.2, # Slightly discourages repetition
+        max_tokens=2000,
+    )
 
 @pytest.fixture
-def setup_orchestrator(stable_llm_client):
+def setup_orchestrator(stable_llm_client, creative_llm_client):
 
     # Use tools instead of agents directly
-    analyze_tool = GridAnalyzerTool(llm=stable_llm_client)
+    analyze_tool = GridAnalyzerTool(llm=creative_llm_client)
     synth_engine = SynthesisEngine()
     synth_tool = ProgramSynthesizerTool(llm=stable_llm_client, synthesizer=synth_engine)
     

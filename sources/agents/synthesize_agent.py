@@ -133,14 +133,41 @@ class SynthesizeAgent:
         """
         # Step 1: Generate initial candidates via LLM
         candidate_strings = self.generate_program_candidates(input_grid, output_grid, analysis_summary)
-        
-        # Step 2: Validate all candidates
+        stored_candidates = []  # To keep track of all candidate strings tried
+
+        max_attempts = 10
         validated_programs = []
-        for program_str in candidate_strings:
-            result = self.parse_and_validate(program_str, input_grid, output_grid)
-            if result:
-                validated_programs.append(result)
-        
+        found_valid = False
+
+        for attempt in range(max_attempts):
+            # On first attempt, use the initial candidates
+            # On subsequent attempts, generate new candidates
+            if attempt > 0:
+                # Prepare enhanced analysis with previous attempts
+                enhanced_analysis = (
+                    f"{analysis_summary}\n\n"
+                    f"Previous unsuccessful attempts with outputed shape mismatch (learn from these):\n"
+                    f"{'\n'.join(f'- {candidate}' for candidate in stored_candidates)}"
+                )
+                candidate_strings = self.generate_program_candidates(input_grid, output_grid, enhanced_analysis)
+            
+            # Store all candidate strings in memory
+            stored_candidates.extend(candidate_strings)
+            
+            # Validate all candidates in this batch
+            for program_str in candidate_strings:
+                result = self.parse_and_validate(program_str, input_grid, output_grid)
+                if result:
+                    validated_programs.append(result)
+                    found_valid = True
+            
+            # If we found at least one valid program, break out of the retry loop
+            if found_valid:
+                break
+
+        if not found_valid:
+            raise ValueError(f"Failed to generate a valid program after {max_attempts} attempts. Stored candidates: {stored_candidates}")
+
         # Step 3: Add synthesized programs from the engine
         synthesized_programs = self.synthesizer.synthesize_matching_programs(
             input_grid, 

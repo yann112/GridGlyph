@@ -52,31 +52,44 @@ class ARCProblemOrchestrator:
         # Convert to numpy arrays for easier manipulation
         input_np = np.array(input_grid)
         output_np = np.array(output_grid)
-        
+        combination_solutions = []
+
         # Step 1: Initial Analysis
         analysis = self._perform_initial_analysis(input_np, output_np)
         self.logger.debug(f"Initial analysis: {analysis}")
         
         # Step 2: Initial Synthesis
-        solution= self._generate_solution(input_np, output_np, analysis)
-        self.logger.debug(f"Initial solution: {solution}")
-        
+        for _ in range(10):
+            initial_solution = self._generate_solution(input_np, output_np, analysis)
+            if initial_solution["success"]:
+                break
+            else:  # Only runs if loop completes without breaking
+                raise RuntimeError("Failed after 10 attempts")
+
+        self.logger.debug(f"Initial solution: {initial_solution}")
+        combination_solutions.append(initial_solution)
         # Step 3: Iterative Refinement
         for iteration in range(max_iterations):
-            if solution.get('score',0) >= 1.0:  # Perfect match
-                return solution
+            if combination_solutions[-1].get('score',0) >= 1.0:  # Perfect match
+                return combination_solutions
                 
             # Find differences between current best output and target
-            differences = self._find_differences(input_np, output_np, solution)
+            differences = self._find_differences(output_np, combination_solutions[-1])
             self.logger.debug(f"differences between current best output and target: {differences}")
-            if not differences:
-                break
                 
             # Generate refined solution
-            solution = self._generate_solution(input_np, output_np, analysis)
-            self.logger.debug(f"Iteration solution: solution")
-            
-        return solution
+            for _ in range(10):
+                refined_solution = self._generate_solution(combination_solutions[-1]['result_grid'], output_np, differences)
+                if refined_solution["success"]:
+                    break
+            else:  # Only runs if loop completes without breaking
+                raise RuntimeError("Failed after 10 attempts")
+
+            self.logger.debug(f"Iteration solution: {refined_solution}")
+            if refined_solution.get('score', 0) > combination_solutions[-1].get('score',0):
+                combination_solutions.append(refined_solution)
+
+        return combination_solutions
     
     def _perform_initial_analysis(self, input_grid: np.ndarray, 
                                 output_grid: np.ndarray) -> str:
@@ -109,12 +122,12 @@ class ARCProblemOrchestrator:
             Tuple of (program, confidence_score)
         """
         if self.synthesizer:
-            return self.synthesizer._run(input_grid.tolist(), output_grid.tolist(), analysis)
+            return self.synthesizer._run(input_grid, output_grid, analysis)
         
         # Fallback dummy solution
         return []
     
-    def _find_differences(self, input_grid: np.ndarray,
+    def _find_differences(self,
                          output_grid: np.ndarray,
                          current_solution: str) -> Dict[str, Any]:
         """Identify differences between current solution output and target.
@@ -129,9 +142,9 @@ class ARCProblemOrchestrator:
         """
         if self.analyzer:
             hint = f"""
-                These grids are not identical—their similarity score is {current_solution['score']} (1.0 = perfect match). Differences could be anywhere:
+                These grids are not identical (this is a certitude)—their similarity score is {current_solution['score']} (1.0 = perfect match). Differences could be anywhere:
 
-                Compare cell by cell (small mismatches matter).
+                Compare cell by cell (very small mismatches matter).
 
                 Check for broken patterns (sequences, symmetry, repetitions).
 

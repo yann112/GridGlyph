@@ -1,13 +1,5 @@
 from typing import Dict, Type
-from core.dsl_nodes import (
-    AbstractTransformationCommand,
-    Identity,
-    RepeatGrid,
-    FlipGridHorizontally,
-    FlipGridVertically,
-    Alternate,
-    MapColors
-    )
+from core.dsl_nodes import *
 
 class TransformationFactory:
     OPERATION_MAP = {
@@ -16,7 +8,13 @@ class TransformationFactory:
         'flip_h': FlipGridHorizontally,
         'flip_v': FlipGridVertically,
         'alternate': Alternate,
-        'map_colors': MapColors
+        'map_colors': MapColors,
+        'swap_rows_or_columns': SwapRowsOrColumns,
+        'reverse_row': ReverseRow,
+        'apply_to_row': ApplyToRow,
+        'custom_pattern': CustomPattern,
+        'conditional_transform': ConditionalTransform,
+        'mask_combinator': MaskCombinator,
     }
 
     @classmethod
