@@ -87,6 +87,7 @@ class SynthesizeAgent:
             Instructions:
             - Use the analysis as one possible interpretation, but also consider alternative transformations that could produce the same result.
             - Include any operation that could reasonably be part of a transformation — even if it's only useful as an inner command (e.g., identity).
+            - Keep combinator operations like `sequence` if multiple smaller changes appear necessary.
             - Only exclude operations that are clearly not applicable (e.g., those that have no effect on this grid or operate on irrelevant axes).
             - Return only a list of operation names that could explain the transformation.
             - Exclude any operations that are clearly not applicable.
@@ -159,10 +160,16 @@ class SynthesizeAgent:
                 Analysis: {analysis_summary}
 
                 Generate transformation programs that match the Input → Output mapping.
-                Some should closely follow the provided analysis.
+                Some should closely follow the main provided analysis.
                 Others may propose alternative interpretations — as long as they result in the correct output.
-
+                Include both simple and complex transformations.
+                Prioritize **universal rules** that apply broadly across the grid
+                Avoid proposing programs that only work for specific positions unless absolutely necessary.
+                Start with the **simplest possible operations**.
+                Use the `sequence` operation **only when multiple small changes are required**.
                 Do not propose duplicated programs.
+                Prioritize clarity and minimalism (e.g., prefer one atomic rule over a full `sequence` unless multiple steps are truly required).
+
 
                 Return each program as a JSON object with this structure:
                 {{"operation": "operation_name", "parameters": {{...}}}}

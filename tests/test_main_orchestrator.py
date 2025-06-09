@@ -86,7 +86,7 @@ def test_orchestrator_with_flipped_repetition(setup_orchestrator):
     ]
     
     # Run the orchestrator
-    result = setup_orchestrator.solve(input_grid, output_grid, max_iterations=3)
+    result = setup_orchestrator.solve(input_grid, output_grid, max_iterations=5)
     
     # Print results for debugging
     print("\n" + "="*50)

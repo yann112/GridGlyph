@@ -16,6 +16,7 @@ class TransformationFactory:
         'conditional_transform': ConditionalTransform,
         'mask_combinator': MaskCombinator,
         'shift_row_or_column': ShiftRowOrColumn,
+        'sequence': Sequence,
     }
 
     @classmethod

@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 import logging
 import numpy as np
+from typing import List, Optional
 
 
 class AbstractTransformationCommand(ABC):
@@ -254,36 +255,28 @@ class ReverseRow(AbstractTransformationCommand):
     synthesis_rules = {
         "type": "atomic",
         "requires_inner": False,
-        "parameter_ranges": {
-            "row_index": (0, 9)  # Assuming max 10 rows
-        }
+        "parameter_ranges": {}
     }
 
-    def __init__(self, row_index: int, logger: logging.Logger = None):
+    def __init__(self, logger: logging.Logger = None):
         super().__init__(logger)
-        self.row_index = row_index
 
     def execute(self, input_grid: np.ndarray) -> np.ndarray:
-        output_grid = input_grid.copy()
-        output_grid[self.row_index] = output_grid[self.row_index][::-1]
-        return output_grid
+        self.logger.debug("Executing ReverseRow on all rows.")
+        return input_grid[:, ::-1]  # Reverses each row
 
     @classmethod
     def describe(cls) -> str:
         return """
-            Reverses the elements of a specified row in the grid.
-
-            Parameters:
-            - row_index: The index of the row to reverse.
-
-            Example:
-            Input: [[1, 2, 3],
-                    [4, 5, 6]]
-            Command: ReverseRow(row_index=1)
-            Output: [[1, 2, 3],
-                     [6, 5, 4]]
+        Reverses the elements in every row of the grid.
+        Useful as an inner command with ApplyToRow to reverse only specific rows.
+        Example:
+        Input: [[1, 2, 3], [4, 5, 6]]
+        Command: ReverseRow()
+        Output: [[3, 2, 1], [6, 5, 4]]
         """
-    
+
+
 class ApplyToRow(AbstractTransformationCommand):
     synthesis_rules = {
         "type": "combinator",
@@ -309,7 +302,9 @@ class ApplyToRow(AbstractTransformationCommand):
     def describe(cls) -> str:
         return """
             Applies a given transformation to a specific row in the grid.
-
+            
+            Use this to target transformations like FlipGridHorizontally, ReverseRow, etc. to one row only.
+            
             Parameters:
             - inner_command: The transformation command to apply to the row.
             - row_index: The index of the row to transform.
@@ -317,9 +312,9 @@ class ApplyToRow(AbstractTransformationCommand):
             Example:
             Input: [[1, 2, 3],
                     [4, 5, 6]]
-            Command: ApplyToRow(FlipGridHorizontally(), row_index=1)
+            Command: ApplyToRow(ReverseRow(), row_index=1)
             Output: [[1, 2, 3],
-                     [6, 5, 4]]
+                    [6, 5, 4]]
         """
     
 
@@ -413,18 +408,20 @@ class MaskCombinator(AbstractTransformationCommand):
     @classmethod
     def describe(cls) -> str:
         return """
-            Applies a transformation to specific elements of the grid based on a mask.
-
+            Applies a transformation to specific elements of the grid based on a boolean mask.
+            
+            Use this to selectively apply operations like ReverseRow or FlipGridHorizontally to certain rows/columns.
+            
             Parameters:
-            - inner_command: The transformation command to apply to the selected elements.
+            - inner_command: The transformation command to apply to selected elements.
             - mask_func: A function that takes a grid and returns a boolean mask.
 
             Example:
             Input: [[1, 2, 3],
                     [4, 5, 6]]
-            Command: MaskCombinator(FlipGridHorizontally(), lambda grid: grid == 2)
-            Output: [[1, 3, 3],
-                     [4, 5, 6]]
+            Command: MaskCombinator(ReverseRow(), lambda grid: np.array([[False, True, False], [True, False, True]]))
+            Output: [[1, 2, 3],
+                    [6, 5, 4]]
         """
  
 class ShiftRowOrColumn:
@@ -479,3 +476,55 @@ class ShiftRowOrColumn:
                     col = np.concatenate([col[-self.shift_amount:], np.zeros(-self.shift_amount, dtype=col.dtype)])
             grid[:, self.col_index] = col
         return grid.tolist()
+    
+class Sequence(AbstractTransformationCommand):
+    """
+    Applies a sequence of transformation commands in order.
+    
+    This combinator allows multiple atomic or nested operations to be applied sequentially.
+    Useful for expressing complex transformations that require multiple steps.
+    """
+
+    synthesis_rules = {
+        "type": "combinator",
+        "requires_inner": True,
+        "parameter_ranges": {
+            "commands": []  # Will be filled dynamically by synthesis engine
+        }
+    }
+
+    def __init__(
+        self,
+        commands: List[AbstractTransformationCommand],
+        logger: Optional[logging.Logger] = None
+    ):
+        super().__init__(logger)
+        self.commands = commands
+
+    def execute(self, input_grid: np.ndarray) -> np.ndarray:
+        """
+        Applies each command in sequence to the input grid.
+        
+        Args:
+            input_grid (np.ndarray): The starting 2D grid.
+            
+        Returns:
+            np.ndarray: Grid after applying all transformations in order.
+        """
+        grid = input_grid.copy()
+        for cmd in self.commands:
+            try:
+                grid = cmd.execute(grid)
+            except Exception as e:
+                self.logger.error(f"Error executing {cmd.__class__.__name__}: {str(e)}")
+                raise
+        return grid
+
+    @classmethod
+    def describe(cls) -> str:
+
+        return (
+            "Applies a sequence of commands in order. "
+            "Useful for combining multiple small transformations into one full solution. "
+            "Example: tile grid → flip row 2 → flip row 3"
+        )
