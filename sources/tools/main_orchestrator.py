@@ -54,7 +54,7 @@ class ARCProblemOrchestrator:
         output_np = np.array(output_grid)
         combination_solutions = []
 
-        # Step 1: Initial Analysis
+        # Step 1: Initial Analysis TODO add a try except block in case http error
         analysis = self._perform_initial_analysis(input_np, output_np)
         self.logger.debug(f"Initial analysis: {analysis}")
         

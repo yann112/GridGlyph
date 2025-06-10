@@ -19,7 +19,6 @@ class SynthesizeAgent:
         self.synthesizer = synthesizer
         self.logger = logger or logging.getLogger(__name__)
 
-
     def _build_operation_documentation(self, allowed_operations: List[str] = None) -> str:
         """
         Build JSON-formatted operation documentation.
@@ -59,7 +58,6 @@ class SynthesizeAgent:
                 continue
 
         return json.dumps(docs, indent=2)
-    
 
     def _filter_relevant_operations(self, input_grid: np.ndarray, output_grid: np.ndarray,
                                     analysis_summary: str) -> List[str]:
@@ -119,7 +117,6 @@ class SynthesizeAgent:
             self.logger.error(f"Error during operation filtering: {e}", exc_info=True)
             return []
         
-
     def _generate_filtered_programs(
             self,
             input_grid: np.ndarray,
@@ -169,24 +166,31 @@ class SynthesizeAgent:
                 Use the `sequence` operation **only when multiple small changes are required**.
                 Do not propose duplicated programs.
                 Prioritize clarity and minimalism (e.g., prefer one atomic rule over a full `sequence` unless multiple steps are truly required).
-
+                Prioritize minimal programs. If a single operation suffices, do not wrap it in a sequence.
+                Avoid unnecessary nesting unless multiple transformations are clearly required.
 
                 Return each program as a JSON object with this structure:
                 {{"operation": "operation_name", "parameters": {{...}}}}
 
                 For operations requiring inner commands, nest them:
                 {{"operation": "repeat_grid", "parameters": {{"inner_command": {{"operation": "identity", "parameters": {{}}}}, "vertical_repeats": 2, "horizontal_repeats": 3}}}}
+                
+                Parameter Types (to avoid breaking parsing):
+                - All numeric values must be numbers, not strings.
+                - Boolean values must be `true` or `false`, not strings.
+                - Null values must be `null`, not `"None"` or other strings.
 
                 IMPORTANT: Return only raw JSON objects, one per line. 
                 DO NOT use markdown code blocks, backticks, or any formatting.
                 DO NOT add explanations or comments.
                 Each line must be a valid JSON object that starts with {{ and ends with }}.
+                Ensure all keys are double-quoted.
+                Avoid trailing commas.
 
                 Example output format:
                 {{"operation": "flip_h", "parameters": {{}}}}
                 {{"operation": "repeat_grid", "parameters": {{"inner_command": {{"operation": "identity", "parameters": {{}}}}, "vertical_repeats": 2, "horizontal_repeats": 2}}}}
-                """
-
+            """
             try:
                 response = self.llm(prompt).strip()
                 self.logger.info("Program generation completed.")
@@ -199,7 +203,6 @@ class SynthesizeAgent:
                 self.logger.error(f"Error during program generation: {e}", exc_info=True)
                 return []
         
-
     def generate_program_candidates(self, input_grid: np.ndarray, output_grid: np.ndarray,
                                     analysis_summary: str) -> List[str]:
         """
@@ -231,7 +234,6 @@ class SynthesizeAgent:
         self.logger.info("Program synthesis complete.")
         return candidates
 
-
     def parse_and_validate(self, program_str: str, input_grid: np.ndarray, 
                          output_grid: np.ndarray) -> Optional[Tuple[AbstractTransformationCommand, float]]:
         """Attempts to parse and validate a single program candidate.
@@ -259,11 +261,34 @@ class SynthesizeAgent:
             matching_cells = np.sum(candidate_output == output_grid)
             score = matching_cells / output_grid.size
             
-            return (program, score)
+            return (program, score, program_str)
             
         except Exception as e:
             self.logger.debug(f"Program validation failed for '{program_str}': {str(e)}")
             return None
+
+    def explain_program(self, program_str: str) -> str:
+        try:
+            operation_docs = self._build_operation_documentation()
+            prompt = f"""
+                You are given the following DSL operations and a program written in that DSL.
+                Your task is to briefly explain what the program does in simple terms.
+                Rules:
+                - Be concise.
+                - Do not describe each operation step-by-step.
+                - Do not include examples.
+                - Output only the explanation.
+                Available Operations:
+                {operation_docs}
+
+                Program:
+                {program_str}
+
+                Explanation:
+                """
+            return self.llm(prompt).strip()
+        except Exception as e:
+            return f"[Error explaining program: {str(e)}]"
 
     def synthesize(self, input_grid: np.ndarray, output_grid: np.ndarray, 
                  analysis_summary: str, top_k: int = 3) -> List[Tuple[AbstractTransformationCommand, float]]:
@@ -315,20 +340,13 @@ class SynthesizeAgent:
         if not found_valid:
             raise ValueError(f"Failed to generate a valid program after {max_attempts} attempts. Stored candidates: {stored_candidates}")
 
-        # Step 3: Add synthesized programs from the engine
-        synthesized_programs = self.synthesizer.synthesize_matching_programs(
-            input_grid, 
-            output_grid,
-            top_k=top_k
-        )
-        validated_programs.extend(synthesized_programs)
-        
-        # Step 4: Deduplicate and sort by score
+        # Step 3: Deduplicate and sort by score
         unique_programs = {}
-        for program, score in validated_programs:
+        for program, score, prg_str in validated_programs:
             program_key = str(program)  # Simple deduplication
             if program_key not in unique_programs or score > unique_programs[program_key][1]:
-                unique_programs[program_key] = (program, score)
+                explanation = self.explain_program(prg_str)
+                unique_programs[program_key] = (program, score, prg_str, explanation)
         
         # Get top programs sorted by score
         top_programs = sorted(unique_programs.values(), key=lambda x: x[1], reverse=True)[:top_k]

@@ -27,31 +27,35 @@ class AbstractTransformationCommand(ABC):
         """Returns a human-readable description of the transformation"""
         return "Unknown transformation"
 
-class MapColors(AbstractTransformationCommand):
-
+class MapNumbers(AbstractTransformationCommand):
     synthesis_rules = {
         "type": "atomic",
         "requires_inner": False,
         "parameter_ranges": {
-            "mapping": {1: 2, 3: 4}
+            "mapping": {1: 2, 3: 4}  # Example mapping; actual values vary per use case
         }
     }
 
     def __init__(self, mapping: dict, logger: logging.Logger = None):
         super().__init__(logger)
+        # Ensure keys are consistently typed (e.g., int) even if strings were passed
         self.mapping = {int(k) if isinstance(k, str) else k: v for k, v in mapping.items()}
 
     def execute(self, input_grid: np.ndarray) -> np.ndarray:
         output_grid = input_grid.copy()
-        for old_color, new_color in self.mapping.items():
-            output_grid[output_grid == old_color] = new_color
+        for old_value, new_value in self.mapping.items():
+            output_grid[output_grid == old_value] = new_value
         return output_grid
 
     @classmethod
-    def describe(cls)-> str:
+    def describe(cls) -> str:
         return """
-            Replaces colors in the grid based on a mapping dictionary.
-            e.g., {1: 9, 2: 8} replaces all 1s with 9s and 2s with 8s.
+            Replaces specified numeric values in the grid based on a dictionary mapping.
+            
+            This operation is useful for changing specific numbers throughout the grid.
+            For example, {1: 9, 2: 8} will replace all 1s with 9s and all 2s with 8s.
+
+            Note: In ARC puzzles, these numbers often represent colors, but this operation treats them as generic integers.
         """
 
 class Identity(AbstractTransformationCommand):
@@ -318,36 +322,6 @@ class ApplyToRow(AbstractTransformationCommand):
         """
     
 
-class CustomPattern(AbstractTransformationCommand):
-    synthesis_rules = {
-        "type": "atomic",
-        "requires_inner": False,
-        "parameter_ranges": {}
-    }
-
-    def __init__(self, pattern_func: callable, logger: logging.Logger = None):
-        super().__init__(logger)
-        self.pattern_func = pattern_func
-
-    def execute(self, input_grid: np.ndarray) -> np.ndarray:
-        return self.pattern_func(input_grid)
-
-    @classmethod
-    def describe(cls) -> str:
-        return """
-            Applies a custom pattern to the grid based on a user-defined function.
-
-            Parameters:
-            - pattern_func: A function that takes a grid and returns a transformed grid.
-
-            Example:
-            Input: [[1, 2, 3],
-                    [4, 5, 6]]
-            Command: CustomPattern(lambda grid: grid * 2)
-            Output: [[2, 4, 6],
-                     [8, 10, 12]]
-        """
-
 class ConditionalTransform(AbstractTransformationCommand):
     synthesis_rules = {
         "type": "combinator",
@@ -388,19 +362,40 @@ class MaskCombinator(AbstractTransformationCommand):
         "type": "combinator",
         "requires_inner": True,
         "parameter_ranges": {
-            "mask_func": "lambda grid: np.ones_like(grid, dtype=bool)" # Default mask selects all elements
+            "mask_func": "lambda grid: np.ones_like(grid, dtype=bool)"
         }
     }
 
-    def __init__(self, inner_command: AbstractTransformationCommand, mask_func: callable, logger: logging.Logger = None):
+    def __init__(self, inner_command: AbstractTransformationCommand, mask_func, logger: logging.Logger = None):
         super().__init__(logger)
         self.inner_command = inner_command
-        self.mask_func = mask_func
+
+        # Allow both real callables and string lambdas
+        if isinstance(mask_func, str):
+            try:
+                # Evaluate the lambda inside a restricted namespace
+                restricted_globals = {"__builtins__": {}}
+                restricted_locals = {"np": np}  # Make sure NumPy is available
+                func = eval(mask_func, restricted_globals, restricted_locals)
+                if not callable(func):
+                    raise ValueError(f"'{mask_func}' is not a callable function")
+                self.mask_func = func
+            except Exception as e:
+                raise ValueError(f"Failed to parse mask_func string: {e}")
+        elif callable(mask_func):
+            self.mask_func = mask_func
+        else:
+            raise TypeError(f"Expected callable or string lambda for mask_func, got {type(mask_func)}")
 
     def execute(self, input_grid: np.ndarray) -> np.ndarray:
         output_grid = input_grid.copy()
-        mask = self.mask_func(input_grid)
-        # Apply the inner command only to the elements selected by the mask
+
+        try:
+            mask = self.mask_func(input_grid)
+        except Exception as e:
+            self.logger.error(f"Error evaluating mask function: {e}")
+            raise
+
         transformed_grid = self.inner_command.execute(input_grid)
         output_grid[mask] = transformed_grid[mask]
         return output_grid

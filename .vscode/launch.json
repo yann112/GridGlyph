@@ -24,7 +24,8 @@
                 // "-k", "test_program_synthesizer_tool"
                 // "-k", "test_synthesis_engine"
                 // "-k", "test_synthesize_agent"
-                "-k", "test_main_orchestrator"
+                // "-k", "test_main_orchestrator"
+                "-k", "test_orchestrator_with_flipped_repetition"
                 // "-k", "test_llm.py"
 
             ],

@@ -30,7 +30,7 @@ def stable_llm_client():
         top_p=0.1,           # Very restrictive sampling
         top_k=1,             # Most likely token only
         repetition_penalty=1.0,  # Neutral repetition
-        max_tokens=500, 
+        max_tokens=1000, 
     )
 
 @pytest.fixture

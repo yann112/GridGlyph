@@ -50,47 +50,116 @@ class DslInterpreter:
             raise ValueError(f"Failed to build command: {str(e)}")
 
     def _build_command_from_dict(self, cmd_dict: dict) -> AbstractTransformationCommand:
-        """Recursively build command from dictionary with improved type handling."""
-        operation = cmd_dict["operation"]
+        """
+        Recursively builds a transformation command from a dictionary.
+        Validates that the operation name is valid before proceeding.
+        """
+        # Ensure input is a dict with "operation" key
+        if not isinstance(cmd_dict, dict):
+            raise TypeError(f"Expected dict for command, got {type(cmd_dict)}: {cmd_dict}")
+        if "operation" not in cmd_dict:
+            raise ValueError(f"Missing 'operation' key in command dict: {cmd_dict}")
+
+        op_name = cmd_dict["operation"]
+        valid_ops = TransformationFactory.OPERATION_MAP.keys()
+
+        if not isinstance(op_name, str):
+            raise TypeError(f"Operation name must be a string, got {type(op_name)}: {op_name}")
+        if op_name not in valid_ops:
+            raise ValueError(f"Unknown operation '{op_name}'. Valid operations are: {list(valid_ops)}")
+
+        # Process parameters
         parameters = cmd_dict.get("parameters", {})
 
         processed_params = {}
-
         for key, value in parameters.items():
-            if isinstance(value, dict) and "operation" in value:
-                # Recursively build nested commands
-                processed_params[key] = self._build_command_from_dict(value)
+            processed_params[key] = self._process_value(value)
 
-            elif key == "mask_func" and isinstance(value, str):
-                # Special case: evaluate mask lambda
-                try:
-                    # Restrict builtins for security
-                    namespace = {"np": np}
-                    func = eval(value, {"__builtins__": {}}, namespace)
-                    if callable(func):
-                        processed_params[key] = func
-                    else:
-                        raise ValueError(f"'{value}' is not a callable function")
-                except Exception as e:
-                    self.logger.error(f"Failed to parse lambda '{value}': {str(e)}")
-                    raise
+        # Build and return the actual command
+        command = TransformationFactory.create_operation(op_name, **processed_params)
 
+        if not isinstance(command, AbstractTransformationCommand):
+            raise ValueError(
+                f"Expected AbstractTransformationCommand, got {type(command)} from {op_name}"
+            )
+
+        return command
+
+    def _process_value(self, value):
+        """
+        Recursively process a value, turning any nested command dicts into real command objects.
+        Also handles lists and safely evaluates strings.
+        """
+        # Base case: None or primitive types
+        if value is None:
+            return value
+
+        # Handle lists recursively
+        if isinstance(value, list):
+            return [self._process_value(item) for item in value]
+
+        # Handle dicts (could be nested commands)
+        if isinstance(value, dict):
+            if "operation" in value and isinstance(value["operation"], str):
+                return self._build_command_from_dict(value)
             else:
-                # Try safe evaluation of stringified values
-                if isinstance(value, str):
-                    try:
-                        evaluated = ast.literal_eval(value)
-                        if isinstance(evaluated, list):
-                            processed_params[key] = tuple(evaluated)  # normalize to tuple
-                        else:
-                            processed_params[key] = evaluated
-                    except (SyntaxError, ValueError):
-                        # Not a Python literal, keep original string
-                        processed_params[key] = value
-                elif isinstance(value, list):
-                    # Normalize all lists to tuples
-                    processed_params[key] = tuple(value)
-                else:
-                    processed_params[key] = value
+                # Regular dict - process its values
+                return {k: self._process_value(v) for k, v in value.items()}
 
-        return TransformationFactory.create_operation(operation, **processed_params)
+        # Handle strings (numbers, booleans, nulls, or potentially stringified commands)
+        if isinstance(value, str):
+            stripped = value.strip()
+            if stripped.startswith("{") and stripped.endswith("}"):
+                try:
+                    parsed = json.loads(stripped)
+                    if isinstance(parsed, dict) and "operation" in parsed:
+                        return self._build_command_from_dict(parsed)
+                except json.JSONDecodeError:
+                    pass  # Not a JSON object, fall through
+
+            return self._safe_eval(stripped)
+
+        # Anything else (int, float, bool, etc.)
+        return value
+
+    def _safe_eval(self, value: str) -> object:
+        """
+        Safely convert common string representations into Python primitives.
+        Handles:
+        - "true"/"True"/"TRUE" → True
+        - "false"/"False"/"FALSE" → False
+        - "none"/"None"/"NULL" → None
+        - Numeric strings → int or float
+        - Stringified command dicts → parsed via _build_command_from_dict
+        - All others → original string
+        """
+        value = value.strip()
+        lower_val = value.lower()
+
+        if lower_val in ("none", "null"):
+            return None
+        elif lower_val == "true":
+            return True
+        elif lower_val == "false":
+            return False
+
+        # Try numeric conversion
+        try:
+            if "." in value:
+                return float(value)
+            else:
+                return int(value)
+        except ValueError:
+            pass  # Not a number, continue checking
+
+        # Try parsing as a command dict
+        if value.startswith("{") and value.endswith("}"):
+            try:
+                parsed = json.loads(value)
+                if isinstance(parsed, dict) and "operation" in parsed:
+                    return self._build_command_from_dict(parsed)
+            except json.JSONDecodeError:
+                pass  # Not valid JSON, treat as string
+
+        # Default: return original string
+        return value

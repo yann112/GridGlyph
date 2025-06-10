@@ -56,16 +56,18 @@ class ProgramSynthesizerTool(BaseTool):
                 }
 
             # Get top program and execute it
-            top_program, top_score = valid_programs[0]
+            top_program, top_score, top_str_program, top_explanation = valid_programs[0]
             result_grid = top_program.execute(input_np)
 
             # Prepare alternatives (skip the top one we're already returning)
             alternatives = [
                 {
                     "program": str(program),
-                    "score": float(score)
+                    "score": float(score),
+                    "program_str": str(str_program),
+                    "explanation": str(explanation)
                 }
-                for program, score in valid_programs[1:]  # Skip first element
+                for program, score, str_program, explanation  in valid_programs[1:]  # Skip first element
             ]
 
             return {
@@ -73,6 +75,8 @@ class ProgramSynthesizerTool(BaseTool):
                 "result_grid": result_grid.tolist(),
                 "program": str(top_program),
                 "score": float(top_score),
+                "program_str": str(top_str_program),
+                "explanation": top_explanation,
                 "alternatives": alternatives
             }
 
