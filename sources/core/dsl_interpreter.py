@@ -2,6 +2,7 @@ import logging
 import ast
 import numpy as np
 import json
+ast.literal_eval
 from core.transformation_factory import TransformationFactory
 from core.dsl_nodes import AbstractTransformationCommand
 
@@ -167,6 +168,16 @@ class DslInterpreter:
                 pass  # Not valid JSON, treat as string
 
         # Default: return original string
+            # Try parsing as a list/tuple
+        if value.startswith("[") and value.endswith("]") or value.startswith("(") and value.endswith(")"):
+            try:
+                # Use literal_eval to safely parse list/tuple strings
+                return ast.literal_eval(value)
+            except (SyntaxError, ValueError) as e:
+                self.logger.warning(f"Failed to parse list-like string '{value}': {e}")
+                # Fall through and return raw string if needed
+                return value
+
         return value
 
     def _parse_lambda_string(self, s: str):
