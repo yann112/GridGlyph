@@ -188,7 +188,22 @@ class DslInterpreter:
         # This function is now only called if `s.startswith("lambda ")` is true
         try:
             # Provide 'np' in the global scope for the evaluated lambda
-            restricted_globals = {"__builtins__": {}, "np": np}
+            allowed_builtins = {
+                "bool": bool,
+                "int": int,
+                "float": float,
+                "str": str,
+                "list": list,
+                "tuple": tuple,
+                "dict": dict,
+                "set": set
+            }
+
+            restricted_globals = {
+                "__builtins__": {},
+                "np": np,
+                **allowed_builtins
+            }
             evaluated_func = eval(s, restricted_globals, {})
             if callable(evaluated_func):
                 self.logger.debug(f"Successfully evaluated lambda string: {s}")

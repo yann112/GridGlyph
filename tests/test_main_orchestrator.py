@@ -75,19 +75,32 @@ def setup_orchestrator(stable_llm_client, creative_llm_client):
     return orchestrator
 
 def test_orchestrator_with_flipped_repetition(setup_orchestrator):
-    # Test data
-    input_grid = [[7, 9], [4, 3]]  # Use lists instead of numpy arrays
-    output_grid = [
-        [7, 9, 7, 9, 7, 9],
-        [4, 3, 4, 3, 4, 3],
-        [9, 7, 9, 7, 9, 7],
-        [3, 4, 3, 4, 3, 4],
-        [7, 9, 7, 9, 7, 9],
-        [4, 3, 4, 3, 4, 3]
-    ]
-    
+    data = {
+        'train': [
+            {'input': [[7, 9], [4, 3]],
+            'output': [
+                [7, 9, 7, 9, 7, 9],
+                [4, 3, 4, 3, 4, 3],
+                [9, 7, 9, 7, 9, 7],
+                [3, 4, 3, 4, 3, 4],
+                [7, 9, 7, 9, 7, 9],
+                [4, 3, 4, 3, 4, 3]
+                ]
+            },
+            {'input': [[8, 6], [6, 4]],
+            'output': [
+                [8, 6, 8, 6, 8, 6],
+                [6, 4, 6, 4, 6, 4],
+                [6, 8, 6, 8, 6, 8],
+                [4, 6, 4, 6, 4, 6],
+                [8, 6, 8, 6, 8, 6],
+                [6, 4, 6, 4, 6, 4]
+                ]
+            }
+            ],
+        'test': [{'input': [[3, 2], [7, 8]]}]}
     # Run the orchestrator
-    result = setup_orchestrator.solve(input_grid, output_grid)
+    result = setup_orchestrator.solve(data)
     
     # Print results for debugging
     print("\n" + "="*50)

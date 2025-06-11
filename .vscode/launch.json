@@ -17,10 +17,10 @@
                 // "-k", "test_synthesis_engine"
                 // "-k", "test_synthesize_agent"
                 // "-k", "test_main_orchestrator"
-                // "-k", "test_orchestrator_with_flipped_repetition"
+                "-k", "test_orchestrator_with_flipped_repetition"
                 // "-k", "test_llm.py"
                 // "-k", "test_single_input_strategies"
-                "-k", "test_dsl_interpreter"
+                // "-k", "test_dsl_interpreter"
             ],
             "console": "integratedTerminal",
             "justMyCode": true
