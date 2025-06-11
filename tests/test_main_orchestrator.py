@@ -5,7 +5,7 @@ from tools.program_synthesizer_tool import ProgramSynthesizerTool
 from tools.grid_analyzer_tool import GridAnalyzerTool
 from core.llm import OpenRouterClient
 from core.synthesis_engine import SynthesisEngine
-from tools.main_orchestrator import ARCProblemOrchestrator
+from tools.main_orchestrator import ARCSolverOrchestrator
 
 
 @pytest.fixture
@@ -67,7 +67,8 @@ def setup_orchestrator(stable_llm_client, creative_llm_client):
     synth_tool = ProgramSynthesizerTool(llm=stable_llm_client, synthesizer=synth_engine)
     
     # Create orchestrator with real dependencies
-    orchestrator = ARCProblemOrchestrator(
+    orchestrator = ARCSolverOrchestrator(
+        strategy_name="greedy",
         analyzer=analyze_tool,
         synthesizer=synth_tool
     )
@@ -86,7 +87,7 @@ def test_orchestrator_with_flipped_repetition(setup_orchestrator):
     ]
     
     # Run the orchestrator
-    result = setup_orchestrator.solve(input_grid, output_grid, max_iterations=5)
+    result = setup_orchestrator.solve(input_grid, output_grid)
     
     # Print results for debugging
     print("\n" + "="*50)

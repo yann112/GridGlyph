@@ -5,19 +5,11 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python : fichier actif",
-            "type": "python",
-            "request": "launch",
-            "program": "${file}",
-            "console": "integratedTerminal",
-            "justMyCode": true
-        },
-        {
             "name": "tests arcprize2025",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "module": "pytest",
-            "cwd": "/workspaces/arcprize2025",
+            "cwd": "/home/yann/ssd_storage/python/arcprize2025",
             "args": [
                 // "-k", "test_main_part_predict_no_error",
                 // "-k", "test_unit_format_dataset_single_batch"
@@ -25,9 +17,10 @@
                 // "-k", "test_synthesis_engine"
                 // "-k", "test_synthesize_agent"
                 // "-k", "test_main_orchestrator"
-                "-k", "test_orchestrator_with_flipped_repetition"
+                // "-k", "test_orchestrator_with_flipped_repetition"
                 // "-k", "test_llm.py"
-
+                // "-k", "test_single_input_strategies"
+                "-k", "test_dsl_interpreter"
             ],
             "console": "integratedTerminal",
             "justMyCode": true

@@ -116,6 +116,11 @@ class DslInterpreter:
                         return self._build_command_from_dict(parsed)
                 except json.JSONDecodeError:
                     pass  # Not a JSON object, fall through
+            
+            if stripped.startswith("lambda "):
+                lambda_func = self._parse_lambda_string(stripped)
+                if lambda_func is not None:
+                    return lambda_func
 
             return self._safe_eval(stripped)
 
@@ -163,3 +168,25 @@ class DslInterpreter:
 
         # Default: return original string
         return value
+
+    def _parse_lambda_string(self, s: str):
+        """
+        Helper to evaluate a string as a lambda function, making 'np' available.
+        Returns the callable function or None if not a valid lambda string or fails evaluation.
+        """
+        # This function is now only called if `s.startswith("lambda ")` is true
+        try:
+            # Provide 'np' in the global scope for the evaluated lambda
+            restricted_globals = {"__builtins__": {}, "np": np}
+            evaluated_func = eval(s, restricted_globals, {})
+            if callable(evaluated_func):
+                self.logger.debug(f"Successfully evaluated lambda string: {s}")
+                return evaluated_func
+            else:
+                self.logger.error(f"Lambda string '{s}' did not evaluate to a callable.")
+                # Raise an error here, as this helper is specifically for parsing a lambda
+                raise ValueError("Lambda string did not evaluate to a callable.")
+        except Exception as e:
+            self.logger.error(f"Failed to evaluate lambda string '{s}': {e}", exc_info=True)
+            # Re-raise the error to be caught by the higher-level _parse_string_value or _process_value
+            raise ValueError(f"Invalid lambda function string: {e}")

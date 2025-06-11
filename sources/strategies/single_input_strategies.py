@@ -3,8 +3,6 @@ from abc import ABC, abstractmethod
 import numpy as np
 from typing import List, Dict, Any
 
-from strategies.single_input_strategies import SingleInputStrategyFactory
-
 class SingleGridStrategy(ABC):
     """
     Abstract base class for strategies that solve single input → output grid transformations.
@@ -12,12 +10,8 @@ class SingleGridStrategy(ABC):
     When implementing a concrete strategy:
         1. Subclass this class
         2. Implement `.synthesize()`, `.describe()`, and `.get_metadata()`
-        3. Use the `@SingleInputStrategyFactory.register_strategy("your_name")` decorator
+        3. update the factory registry
     
-    Example:
-        @SingleInputStrategyFactory.register_strategy("greedy")
-        class GreedySynthesisStrategy(SingleGridStrategy):
-            ...
     """
     def __init__(self, analyzer=None, synthesizer=None, logger: logging.Logger = None):
         self.analyzer = analyzer
@@ -39,7 +33,6 @@ class SingleGridStrategy(ABC):
         raise NotImplementedError()
 
 
-@SingleInputStrategyFactory.register_strategy("greedy")
 class GreedySynthesisStrategy(SingleGridStrategy):
     def __init__(
         self,

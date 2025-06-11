@@ -1,8 +1,10 @@
 from typing import Dict, Type, Any, List
-from strategies.single_input_strategies import SingleGridStrategy
+from strategies.single_input_strategies import *
 
 class SingleInputStrategyFactory:
-    STRATEGY_REGISTRY: Dict[str, Type[SingleGridStrategy]] = {}
+    STRATEGY_REGISTRY: Dict[str, Type[SingleGridStrategy]] = {
+        "greedy": GreedySynthesisStrategy,
+    }
 
     @classmethod
     def register_strategy(cls, name: str):

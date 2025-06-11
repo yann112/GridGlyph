@@ -42,9 +42,15 @@ class MapNumbers(AbstractTransformationCommand):
         self.mapping = {int(k) if isinstance(k, str) else k: v for k, v in mapping.items()}
 
     def execute(self, input_grid: np.ndarray) -> np.ndarray:
-        output_grid = input_grid.copy()
+        conditions = []
+        choices = []
+
         for old_value, new_value in self.mapping.items():
-            output_grid[output_grid == old_value] = new_value
+            conditions.append(input_grid == old_value)
+            choices.append(new_value)
+
+        output_grid = np.select(conditions, choices, default=input_grid)
+
         return output_grid
 
     @classmethod
@@ -369,23 +375,7 @@ class MaskCombinator(AbstractTransformationCommand):
     def __init__(self, inner_command: AbstractTransformationCommand, mask_func, logger: logging.Logger = None):
         super().__init__(logger)
         self.inner_command = inner_command
-
-        # Allow both real callables and string lambdas
-        if isinstance(mask_func, str):
-            try:
-                # Evaluate the lambda inside a restricted namespace
-                restricted_globals = {"__builtins__": {}}
-                restricted_locals = {"np": np}  # Make sure NumPy is available
-                func = eval(mask_func, restricted_globals, restricted_locals)
-                if not callable(func):
-                    raise ValueError(f"'{mask_func}' is not a callable function")
-                self.mask_func = func
-            except Exception as e:
-                raise ValueError(f"Failed to parse mask_func string: {e}")
-        elif callable(mask_func):
-            self.mask_func = mask_func
-        else:
-            raise TypeError(f"Expected callable or string lambda for mask_func, got {type(mask_func)}")
+        self.mask_func = mask_func
 
     def execute(self, input_grid: np.ndarray) -> np.ndarray:
         output_grid = input_grid.copy()
