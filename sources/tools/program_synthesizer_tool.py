@@ -62,7 +62,7 @@ class ProgramSynthesizerTool(BaseTool):
             # Prepare alternatives (skip the top one we're already returning)
             alternatives = [
                 {
-                    "program": str(program),
+                    "program": program,
                     "score": float(score),
                     "program_str": str(str_program),
                     "explanation": str(explanation)
@@ -73,7 +73,7 @@ class ProgramSynthesizerTool(BaseTool):
             return {
                 "success": True,
                 "result_grid": result_grid.tolist(),
-                "program": str(top_program),
+                "program": top_program,
                 "score": float(top_score),
                 "program_str": str(top_str_program),
                 "explanation": top_explanation,

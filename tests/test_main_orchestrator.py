@@ -1,6 +1,5 @@
 import numpy as np
 import pytest
-from core.features_analysis import ProblemAnalyzer
 from tools.program_synthesizer_tool import ProgramSynthesizerTool
 from tools.grid_analyzer_tool import GridAnalyzerTool
 from core.llm import OpenRouterClient
@@ -68,9 +67,10 @@ def setup_orchestrator(stable_llm_client, creative_llm_client):
     
     # Create orchestrator with real dependencies
     orchestrator = ARCSolverOrchestrator(
-        strategy_name="greedy",
-        analyzer=analyze_tool,
-        synthesizer=synth_tool
+        single_strategy_name="greedy",
+        multi_strategy_name="generalize",
+        analyzer_tool=analyze_tool,
+        synthesizer_tool=synth_tool
     )
     return orchestrator
 

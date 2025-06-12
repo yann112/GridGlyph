@@ -25,7 +25,7 @@ class GridAnalyzerTool(BaseTool):
     def __init__(self, llm: LLMClient = None, **kwargs):
         super().__init__(**kwargs)
         llm = llm or OpenRouterClient()
-        self._agent = AnalyzeAgent(llm=llm, analyzer=ProblemAnalyzer())
+        self._agent = AnalyzeAgent(mode='single', llm=llm, analyzer=ProblemAnalyzer())
 
     def _run(self, input_grid: List[List[int]], output_grid: List[List[int]], prompt_hint: Optional[str] = None):
         try:

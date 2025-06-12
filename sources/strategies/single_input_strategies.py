@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 from typing import List, Dict, Any
 
+
 class SingleGridStrategy(ABC):
     """
     Abstract base class for strategies that solve single input → output grid transformations.
@@ -13,9 +14,9 @@ class SingleGridStrategy(ABC):
         3. update the factory registry
     
     """
-    def __init__(self, analyzer=None, synthesizer=None, logger: logging.Logger = None):
-        self.analyzer = analyzer
-        self.synthesizer = synthesizer
+    def __init__(self, analyzer_tool=None, synthesizer_tool=None, logger: logging.Logger = None):
+        self.analyzer_tool = analyzer_tool
+        self.synthesizer_tool = synthesizer_tool
         self.logger = logger or logging.getLogger(__name__)
     
     @abstractmethod
@@ -36,8 +37,8 @@ class SingleGridStrategy(ABC):
 class GreedySynthesisStrategy(SingleGridStrategy):
     def __init__(
         self,
-        analyzer=None,
-        synthesizer=None,
+        analyzer_tool=None,
+        synthesizer_tool=None,
         logger: logging.Logger = None,
         max_initial_attempts: int = 10,
         max_refinement_attempts: int = 10,
@@ -46,7 +47,7 @@ class GreedySynthesisStrategy(SingleGridStrategy):
         min_score_improvement: float = 0.05,
         use_feedback_on_retry: bool = True
     ):
-        super().__init__(analyzer=analyzer, synthesizer=synthesizer, logger=logger)
+        super().__init__(analyzer_tool=analyzer_tool, synthesizer_tool=synthesizer_tool, logger=logger)
         
         # Strategy-specific configuration
         self.max_initial_attempts = max_initial_attempts
@@ -56,7 +57,36 @@ class GreedySynthesisStrategy(SingleGridStrategy):
         self.min_score_improvement = min_score_improvement
         self.use_feedback_on_retry = use_feedback_on_retry
 
-    def synthesize(self, input_grid: np.ndarray, output_grid: np.ndarray) -> List[Dict[str, Any]]:
+    def _test_previous_solutions(self, input_grid, output_grid, previous_solutions):
+        self.logger.info(f"Trying {len(previous_solutions)} previous solutions before synthesis")
+
+        for puzlle_number in previous_solutions:
+            prev_solution = previous_solutions[puzlle_number].copy()
+            if prev_solution[-1].get("score", 0) < 0.95:
+                continue
+            previous_grid = input_grid.copy()
+            new_solution = []
+            for step in prev_solution:
+                try:
+                    new_result = step.copy()
+                    new_result['alternatives'] = []
+                    program, new_result['score'], _  = self.synthesizer_tool._agent.parse_and_validate(step['program_str'], previous_grid, output_grid)
+                    new_result['result_grid'] = program.execute(previous_grid)
+                    previous_grid = new_result['result_grid']
+                    new_solution.append(new_result)
+                except Exception as e:
+                    self.logger.warning(f"Failed to reuse previous solution '{step}...': {str(e)}")
+                    continue
+            return new_solution
+
+
+
+    def synthesize(
+        self,
+        input_grid: np.ndarray,
+        output_grid: np.ndarray,
+        previous_solutions: List[Dict[str, Any]]
+            ) -> List[Dict[str, Any]]:
         """
         Implements current workflow:
         1. Initial analysis → generate first attempt
@@ -67,6 +97,9 @@ class GreedySynthesisStrategy(SingleGridStrategy):
         """
         combination_solutions = []
 
+        # step 0: test previous solutions if exists
+        if previous_solutions:
+            return self._test_previous_solutions(input_grid, output_grid, previous_solutions)
         # Step 1: Initial Analysis
         analysis = self._perform_initial_analysis(input_grid, output_grid)
         self.logger.debug(f"Initial analysis: {analysis}")
@@ -107,19 +140,19 @@ class GreedySynthesisStrategy(SingleGridStrategy):
 
     def _perform_initial_analysis(self, input_grid: np.ndarray, output_grid: np.ndarray) -> str:
         """Internal version of analysis step."""
-        if self.analyzer:
-            return self.analyzer._run(input_grid.tolist(), output_grid.tolist())
+        if self.analyzer_tool:
+            return self.analyzer_tool._run(input_grid.tolist(), output_grid.tolist())
         return f"Analyzing grid transformation from {input_grid.shape} to {output_grid.shape}"
 
     def _generate_solution(self, input_grid: np.ndarray, output_grid: np.ndarray, analysis: str) -> Dict[str, Any]:
         """Internal version of solution generation."""
-        if self.synthesizer:
-            return self.synthesizer._run(input_grid, output_grid, analysis)
+        if self.synthesizer_tool:
+            return self.synthesizer_tool._run(input_grid, output_grid, analysis)
         return {"success": False, "error": "Fallback synthesizer not implemented"}
 
     def _find_differences(self, output_grid: np.ndarray, current_solution: Dict[str, Any]) -> Dict[str, Any]:
         """Internal version of difference detection."""
-        if self.analyzer:
+        if self.analyzer_tool:
             hint = f"""
                 These grids are not identical — their similarity score is {current_solution['score']}.
                 Differences could be anywhere:
@@ -128,7 +161,7 @@ class GreedySynthesisStrategy(SingleGridStrategy):
                 Check for broken patterns (sequences, symmetry, repetition).
                 Even small mismatches matter.
                 """
-            return self.analyzer._run(
+            return self.analyzer_tool._run(
                 input_grid=output_grid,
                 output_grid=current_solution["result_grid"],
                 prompt_hint=hint
