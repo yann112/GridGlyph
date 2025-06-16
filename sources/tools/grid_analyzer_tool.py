@@ -21,6 +21,10 @@ class GridAnalyzerTool(BaseTool):
     description: str = "Analyzes the input/output grids and describes potential transformations."
     args_schema: Type[BaseModel] = GridAnalyzerInput
     _agent: AnalyzeAgent = PrivateAttr()
+    class Config:
+        """This allow extra parameters that not in pydantic model like the llm if injected"""
+        extra = 'allow'
+    
 
     def __init__(self, llm: LLMClient = None, **kwargs):
         super().__init__(**kwargs)

@@ -4,7 +4,8 @@ import numpy as np
 import pytest
 from typing import List, Dict, Any
 
-
+from agents.agents_utils import MultiGridFeatureCollector
+from core.features_analysis import ProblemAnalyzer
 class MultiGridStrategy(ABC):
     """
     Abstract base class for strategies that solve using multiple examples.
@@ -21,7 +22,7 @@ class MultiGridStrategy(ABC):
         self.logger = logger or logging.getLogger(__name__)
     
     @abstractmethod
-    def generalize(self, train_examples: List[Dict[str, Any]], test_input: np.ndarray) -> Dict[str, Any]:
+    def analyze(self, train_examples: List[Dict[str, Any]], test_input: np.ndarray) -> Dict[str, Any]:
         """
         Takes multiple train examples and tries to generalize to test input.
         
@@ -63,7 +64,7 @@ class GeneralizingStrategy(MultiGridStrategy):
             "type": "generalization"
         }
 
-    def generalize(self, train_examples: List[dict], train_results: dict) -> dict:
+    def analyze(self, train_examples: List[dict], train_results: dict) -> dict:
         """
         Generalizes a transformation rule from multiple train examples and their solutions.
         
@@ -74,33 +75,18 @@ class GeneralizingStrategy(MultiGridStrategy):
         Returns:
             dict: Contains generalized solution, confidence, success flag, etc.
         """
-        # Step 1: Collect all individual solutions from train_results
-        all_candidates_by_puzzle, all_unique_programs = self._collect_all_programs(train_results)
 
-        # Step 2: Extract transformation patterns or programs from each solution
-        extracted_patterns = self._extract_patterns(all_unique_programs)
-
-        # Step 2.5: Check if any single solution already works universally
-        universal_solution = self._check_universal_candidate(
-            all_candidates_by_puzzle,
-            train_examples
+        # Step 1: Analyze if we can extract an universal solution base on the unperfect or partial solutions we found before
+        analysis = self.analyzer_tool._run(
+            examples = train_examples,
+            train_results = train_results,
+            prompt_hint = None
         )
-        if universal_solution:
-            return self._create_success_result(universal_solution)
 
-        # Step 3: Find commonalities between the extracted patterns
-        common_pattern = self._find_common_pattern(train_examples, extracted_patterns)
+        # Step 2: ask the synthesizer to find a generic program and score it on all grid
 
-        # Step 4: Build a generalized transformation rule or program
-        generalized_program = self._synthesize_generalized_program(common_pattern)
+        # Step 3: Validate and iterate until found or timeout
 
-        # Step 4.5: Validate and iterate until found or timeout
-
-        # Step 5: Generate candidate solutions for test input
-        final_solution = self._score_and_select_final_solution(
-            generalized_program,
-            train_examples
-        )
+        # Step 4: Generate candidate solutions for test input
 
         # Step 6: Return result with metadata
-        return final_solution

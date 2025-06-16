@@ -3,30 +3,8 @@ import numpy as np
 from tools.program_synthesizer_tool import ProgramSynthesizerTool
 from core.llm import OpenRouterClient
 from core.synthesis_engine import SynthesisEngine
+from fixtures import stable_llm_client
 
-
-@pytest.fixture
-def stable_llm_client():
-    """
-    Fixture providing a stable OpenRouter client optimized for consistent program synthesis.
-    
-    Uses deterministic settings:
-    - temperature=0.0: Eliminates randomness for identical outputs
-    - top_p=0.1: Restricts token sampling for consistency  
-    - top_k=1: Always picks most likely token
-    - repetition_penalty=1.0: Neutral repetition handling
-    
-    Returns:
-        OpenRouterClient: Configured client for stable program generation
-    """
-    return OpenRouterClient(
-        model="mistralai/mistral-small-3.1-24b-instruct",
-        temperature=0.0,      # Completely deterministic
-        top_p=0.1,           # Very restrictive sampling
-        top_k=1,             # Most likely token only
-        repetition_penalty=1.0,  # Neutral repetition
-        max_tokens=800,      # Sufficient for code generation
-    )
 
 
 @pytest.fixture
@@ -58,14 +36,61 @@ def test_program_synthesizer_tool_end_to_end(program_synthesizer_tool):
     """Test the full tool workflow with real components."""
     # Simple test case - horizontal repeat
     input_grid = [
-        [1, 2],
-        [3, 4]
-    ]
+                [7, 9, 7, 9, 7, 9],
+                [4, 3, 4, 3, 4, 3],
+                [7, 9, 7, 9, 7, 9],
+                [4, 3, 4, 3, 4, 3],
+                [7, 9, 7, 9, 7, 9],
+                [4, 3, 4, 3, 4, 3]
+        ]
     output_grid = [
-        [1, 2, 1, 2],
-        [3, 4, 3, 4]
-    ]
-    analysis = "The pattern shows horizontal repetition"
+                [7, 9, 7, 9, 7, 9],
+                [4, 3, 4, 3, 4, 3],
+                [9, 7, 9, 7, 9, 7],
+                [3, 4, 3, 4, 3, 4],
+                [7, 9, 7, 9, 7, 9],
+                [4, 3, 4, 3, 4, 3]
+        ]
+    analysis = """
+        #### 0.Rules
+        - This analysis uses zero-based indexing. All row and column indices in this document are zero-based, When we refer to "row 2", we mean the row at index 2      
+        
+        #### 1. Base Structure or Repeating Pattern in the Input
+        The input grid is a 6x6 matrix with alternating values of 7 and 9 in each row, and alternating values of 4 and 3 in each row. This creates a repeating pattern of 7, 9, 7, 9, 7, 9 and 4, 3, 4, 3, 4, 3.
+
+        #### 2. Deviations from the Base Structure
+        The output grid deviates from the input grid in the following ways:
+        - **Row 2:** The values 9, 7, 9, 7, 9, 7 are changed to 7, 9, 7, 9, 7, 9.
+        - **Row 3:** The values 3, 4, 3, 4, 3, 4 are changed to 4, 3, 4, 3, 4, 3.
+
+        #### 3. Possible Explanations
+        1. **Most Likely Explanation:**
+        - The values in rows 2 and 3 were swapped. Specifically, the 9s and 7s in row 2 were swapped with the 3s and 4s in row 3, respectively.
+
+        2. **Alternative View:**
+        - The values in rows 2 and 3 were rotated 180 degrees. This would mean that the values in row 2 were reflected across the horizontal axis, and the values in row 3 were reflected across the horizontal axis.
+
+        3. **Speculative or Exploratory Ide a:**
+        - The values in rows 2 and 3 were transposed. This would mean that the values in row 2 were moved to the positions of the values in row 3, and vice versa.
+
+        #### 4. Transformations That Don't Fit
+        - **Rotation:** The grid does not show any signs of rotation (90, 180, or 270 degrees).
+        - **Tiling:** The grid does not show any signs of tiling.
+        - **Color Filtering:** The grid does not show any signs of color filtering, as the colors remain the same.
+
+        #### 5. Testing These Ideas
+        - **Swapping Rows:**
+        - Expected Result: If rows 2 and 3 were swapped, the output grid should match the input grid with the values in row 2 moved to row 3 and vice versa.
+
+        - **Rotating Rows:**
+        - Expected Result: If rows 2 and 3 were rotated 180 degrees, the output grid should show the values in row 2 reflected across the horizontal axis and the values in row 3 reflected across the horizontal axis.
+
+        - **Transposing Rows:**
+        - Expected Result: If rows 2 and 3 were transposed, the output grid should show the values in row 2 moved to the positions of the values in row 3, and vice versa.
+
+        ### Conclusion
+        The most likely explanation is that the values in rows 2 and 3 were swapped. This hypothesis aligns with the observed changes in the output grid and does not contradict any other features or patterns in the grid. Further testing by swapping rows 2 and 3 in the input grid should confirm this hypothesis.
+    """
 
     # Execute the tool
     result = program_synthesizer_tool._run(input_grid, output_grid, analysis)
@@ -78,7 +103,7 @@ def test_program_synthesizer_tool_end_to_end(program_synthesizer_tool):
     assert result["score"] == 1.0, (
         f"Expected perfect score (1.0), got {result['score']}"
     )
-
+  
 
 @pytest.mark.integration
 def test_horizontal_flip(program_synthesizer_tool):

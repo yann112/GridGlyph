@@ -241,6 +241,7 @@ class SwapRowsOrColumns(AbstractTransformationCommand):
     def describe(cls) -> str:
         return """
             Swaps rows or columns in the grid.
+            Row and column indices are zero-based.
             
             Parameters:
             - row_swap: Tuple of two row indices to swap (e.g., (0, 1) swaps first and second rows)

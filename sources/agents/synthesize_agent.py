@@ -1,4 +1,4 @@
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Dict, Any
 import numpy as np
 import logging
 import json
@@ -8,16 +8,19 @@ from core.transformation_factory import TransformationFactory
 
 
 class SynthesizeAgent:
-    def __init__(self, llm, synthesizer, logger: logging.Logger = None):
+    def __init__(self, llm, synthesizer, logger: logging.Logger = None, mandatory_operations: List = None):
         """
         Args:
             llm: Language model interface for generating program candidates
             synthesizer: SynthesisEngine instance for validating programs
             logger: Optional logger instance
+            mandatory_operations: Optional, set a list of operations that will always be given to the synthesizer 
         """
         self.llm = llm
         self.synthesizer = synthesizer
+        self.number_program_candidates = 10
         self.logger = logger or logging.getLogger(__name__)
+        self.mandatory_operations = mandatory_operations or ['identity', 'sequence', 'mask_combinator']
 
     def _build_operation_documentation(self, allowed_operations: List[str] = None) -> str:
         """
@@ -71,7 +74,7 @@ class SynthesizeAgent:
         self.logger.debug(f"Analysis Summary:\n{analysis_summary}")
 
         prompt = f"""
-            You are an operation filterer. Based on the analysis, identify which operations are most relevant for transforming the input grid to match the output grid.
+            You are an operation filterer. Your task is to identify all operations from the available list that could potentially be used to transform the Input Grid into the Output Grid.
 
             Available Operations:
             {operation_docs}
@@ -83,22 +86,18 @@ class SynthesizeAgent:
             {analysis_summary}
 
             Instructions:
-            - Use the analysis as one possible interpretation, but also consider alternative transformations that could produce the same result.
-            - Include any operation that could reasonably be part of a transformation — even if it's only useful as an inner command (e.g., identity).
-            - Keep combinator operations like `sequence` if multiple smaller changes appear necessary.
-            - Only exclude operations that are clearly not applicable (e.g., those that have no effect on this grid or operate on irrelevant axes).
-            - Return only a list of operation names that could explain the transformation.
-            - Exclude any operations that are clearly not applicable.
-            - Wrap your answer in triple backticks like this:
-              ```json
-              ["swap_rows_or_columns", "apply_to_row", "mask_combinator"]
-              ```
+            - Focus on operations that can **implement the core transformation described in the Analysis Summary**.
+            - Actively explore and include any **alternative operational approaches** that could also achieve the transformation.
+            - Include operations that might serve as an inner command within a combinator (e.g., `flip_h` inside `apply_to_row`).
+            - Keep combinator operations like `sequence` and `mask_combinator` if multiple smaller or targeted changes appear necessary.
+            - Only exclude operations that are clearly not applicable (e.g., those that would have no effect on this specific grid, or operate on entirely irrelevant axes).
+            - Return only a JSON list of operation names.
 
             Example response:
             ```json
-            ["swap_rows_or_columns", "apply_to_row", "flip_h"]
+            ["swap_rows_or_columns", "apply_to_row", "flip_h", "sequence", "mask_combinator"]
             ```
-        """
+            """
 
         try:
             response = self.llm(prompt).strip()
@@ -111,12 +110,47 @@ class SynthesizeAgent:
                 raise ValueError("Could not find JSON block in filtering response.")
             content = response[start:end].strip()
             filtered_ops = json.loads(content)
+            # Add mandatory operations by name
+            filtered_ops.extend(self.mandatory_operations)
+            # Remove duplicates while preserving order
+            seen = set()
+            filtered_ops = [x for x in filtered_ops if x not in seen and not seen.add(x)]
             self.logger.info(f"Filtered operations: {filtered_ops}")
             return filtered_ops
         except Exception as e:
             self.logger.error(f"Error during operation filtering: {e}", exc_info=True)
             return []
+
+    def _filter_valid_json_dicts(self, candidate_strings: List[str]) -> List[str]:
+        """
+        Filters a list of strings, returning only those that are valid JSON dictionaries.
         
+        Uses self.logger for logging warnings.
+        
+        Args:
+            candidate_strings: List of raw string candidates (possibly JSON-formatted)
+            
+        Returns:
+            List of valid JSON dictionary objects
+        """
+        valid_dicts = []
+        
+        for idx, line in enumerate(candidate_strings):
+            line = line.strip()
+            if not line:
+                continue
+            
+            try:
+                data = json.loads(line)
+                if isinstance(data, dict):
+                    valid_dicts.append(line)
+                else:
+                    self.logger.debug(f"Line {idx}: JSON is not a dictionary: {data}")
+            except json.JSONDecodeError as e:
+                self.logger.debug(f"Line {idx}: Invalid JSON - {e}: '{line}'")
+        
+        return valid_dicts
+
     def _generate_filtered_programs(
             self,
             input_grid: np.ndarray,
@@ -147,27 +181,21 @@ class SynthesizeAgent:
             self.logger.debug(f"Filtered Operation Docs:\n{filtered_docs_str}")
 
             prompt = f"""
-                You are a DSL program synthesizer. Generate 5–10 transformation programs in JSON format.
-
+                You are a DSL program synthesizer. Generate around {self.number_program_candidates} transformation programs in JSON format.
+                Notes: We always zero-based indexing. All row and column indices in this document are zero-based, When we refer to "row 4", we mean the row at index 4
                 Available Operations:
                 {filtered_docs_str}
 
                 Input Grid: {input_grid.tolist()}
                 Output Grid: {output_grid.tolist()}
                 Analysis: {analysis_summary}
-
-                Generate transformation programs that match the Input → Output mapping.
-                Some should closely follow the main provided analysis.
-                Others may propose alternative interpretations — as long as they result in the correct output.
-                Include both simple and complex transformations.
-                Prioritize **universal rules** that apply broadly across the grid
-                Avoid proposing programs that only work for specific positions unless absolutely necessary.
-                Start with the **simplest possible operations**.
-                Use the `sequence` operation **only when multiple small changes are required**.
-                Do not propose duplicated programs.
-                Prioritize clarity and minimalism (e.g., prefer one atomic rule over a full `sequence` unless multiple steps are truly required).
-                Prioritize minimal programs. If a single operation suffices, do not wrap it in a sequence.
-                Avoid unnecessary nesting unless multiple transformations are clearly required.
+                                
+                - Follow the provided analysis closely. At least half of the generated programs must reflect the main hypothesis from the analysis.
+                - Prefer simple atomic operations unless multiple steps are clearly required.
+                - Do not wrap a single operation inside a `sequence` unnecessarily.
+                - Avoid using identity transformations or mask combinators unless they serve a purpose.
+                - Avoid generating programs that cancel each other out (e.g., swapping rows back and forth).
+                - If unsure, prioritize minimalism and correctness over complexity.
 
                 Return each program as a JSON object with this structure:
                 {{"operation": "operation_name", "parameters": {{...}}}}
@@ -198,12 +226,14 @@ class SynthesizeAgent:
 
                 candidates = [line.strip() for line in response.split('\n') if line.strip()]
                 self.logger.info(f"Generated {len(candidates)} program candidates.")
-                return candidates
+                json_candidates = self._filter_valid_json_dicts(candidates)
+
+                return json_candidates
             except Exception as e:
                 self.logger.error(f"Error during program generation: {e}", exc_info=True)
                 return []
         
-    def generate_program_candidates(self, input_grid: np.ndarray, output_grid: np.ndarray,
+    def _generate_program_candidates(self, input_grid: np.ndarray, output_grid: np.ndarray,
                                     analysis_summary: str) -> List[str]:
         """
         Main entry point: two-stage synthesis pipeline.
@@ -289,67 +319,123 @@ class SynthesizeAgent:
             return self.llm(prompt).strip()
         except Exception as e:
             return f"[Error explaining program: {str(e)}]"
+    
+    def _validate_programs(self, candidate_strings, input_grid, output_grid):
+        """Validates a list of candidate strings and returns only those that match output."""
+        valid_batch = []
+        for program_str in candidate_strings:
+            result = self.parse_and_validate(program_str, input_grid, output_grid)
+            if result:
+                valid_batch.append(result)
+        return valid_batch
+
+    def _build_enhanced_analysis(self, original_summary, stored_candidates):
+        """Builds enhanced prompt from previous failures to guide next generation."""
+        failed_examples = '\n'.join(f'- {c}' for c in stored_candidates)
+        return (
+            f"{original_summary}\n\n"
+            f"Previous unsuccessful attempts (learn from these):\n"
+            f"{failed_examples}"
+        )
+    
+    def _execute_top_program(self, program, input_grid):
+        """Safely executes the top transformation on the input grid."""
+        try:
+            return program.execute(input_grid)
+        except Exception as e:
+            raise RuntimeError(f"Failed to execute program: {str(e)}")
+    
+    def _format_output_on_failure(self, stored_candidates):
+        """Returns structured failure response."""
+        return {
+            "success": False,
+            "error": f"Failed to generate a valid program after max attempts",
+            "stored_candidates": stored_candidates
+        }
+
+    def _format_output(self, unique_programs, input_grid, top_k=3):
+        """Formats final structured output including top program and alternatives."""
+        sorted_programs = sorted(
+            unique_programs.values(),
+            key=lambda x: x[1],
+            reverse=True
+        )[:top_k]
+
+        top_program, top_score, top_str, top_explanation = sorted_programs[0]
+        result_grid = self._execute_top_program(top_program, input_grid)
+
+        alternatives = [
+            {
+                "program": p,
+                "score": float(s),
+                "program_str": str(ps),
+                "explanation": e
+            }
+            for p, s, ps, e in sorted_programs[1:]
+        ]
+
+        return {
+            "success": True,
+            "result_grid": result_grid.tolist(),
+            "program": top_program,
+            "score": float(top_score),
+            "program_str": top_str,
+            "explanation": top_explanation,
+            "alternatives": alternatives
+        }
+   
+    def _deduplicate_and_enrich(self, validated_programs):
+        """Deduplicates programs and enriches with explanation."""
+        unique_programs = {}
+        for program, score, prg_str in validated_programs:
+            key = str(program)
+            explanation = self.explain_program(prg_str)
+            if key not in unique_programs or score > unique_programs[key][1]:
+                unique_programs[key] = (program, score, prg_str, explanation)
+        return unique_programs
 
     def synthesize(self, input_grid: np.ndarray, output_grid: np.ndarray, 
-                 analysis_summary: str, top_k: int = 3) -> List[Tuple[AbstractTransformationCommand, float]]:
-        """Full synthesis pipeline combining LLM generation and program validation.
-        
-        Args:
-            input_grid: Input grid as numpy array
-            output_grid: Desired output grid as numpy array
-            analysis_summary: Text analysis of the transformation
-            top_k: Number of top programs to return
-            
-        Returns:
-            List of (program, score) tuples sorted by score descending
+                analysis_summary: str, top_k: int = 3) -> Dict[str, Any]:
         """
-        # Step 1: Generate initial candidates via LLM
-        candidate_strings = self.generate_program_candidates(input_grid, output_grid, analysis_summary)
-        stored_candidates = []  # To keep track of all candidate strings tried
-
-        max_attempts = 10
+        Full synthesis pipeline combining LLM generation, program validation,
+        deduplication, execution, and structured output formatting.
+        
+        Returns:
+            Dict[str, Any]: Structured result with success flag, result grid,
+                            top program, alternatives, etc.
+        """
+        stored_candidates = []
         validated_programs = []
+        max_attempts = 10
         found_valid = False
 
         for attempt in range(max_attempts):
-            # On first attempt, use the initial candidates
-            # On subsequent attempts, generate new candidates
-            if attempt > 0:
-                # Prepare enhanced analysis with previous attempts
-                enhanced_analysis = (
-                    f"{analysis_summary}\n\n"
-                    f"Previous unsuccessful attempts with outputed shape mismatch (learn from these):\n"
-                    f"{'\n'.join(f'- {candidate}' for candidate in stored_candidates)}"
-                )
-                candidate_strings = self.generate_program_candidates(input_grid, output_grid, enhanced_analysis)
-            
-            # Store all candidate strings in memory
+            # Step 1: Generate candidate programs
+            if attempt == 0:
+                candidate_strings = self._generate_program_candidates(input_grid, output_grid, analysis_summary)
+            else:
+                enhanced_analysis = self._build_enhanced_analysis(analysis_summary, stored_candidates)
+                candidate_strings = self._generate_program_candidates(input_grid, output_grid, enhanced_analysis)
+
             stored_candidates.extend(candidate_strings)
-            
-            # Validate all candidates in this batch
-            for program_str in candidate_strings:
-                result = self.parse_and_validate(program_str, input_grid, output_grid)
-                if result:
-                    validated_programs.append(result)
-                    found_valid = True
-            
-            # If we found at least one valid program, break out of the retry loop
-            if found_valid:
-                break
+
+            # Step 2: Validate generated programs
+            batch_validated = self._validate_programs(candidate_strings, input_grid, output_grid)
+            validated_programs.extend(batch_validated)
+
+            if batch_validated:
+                found_valid = True
+
+            if found_valid and len(validated_programs) >= top_k:
+                break  # Stop early if we already have enough top-quality candidates
 
         if not found_valid:
-            raise ValueError(f"Failed to generate a valid program after {max_attempts} attempts. Stored candidates: {stored_candidates}")
+            return self._format_output_on_failure(stored_candidates)
 
-        # Step 3: Deduplicate and sort by score
-        unique_programs = {}
-        for program, score, prg_str in validated_programs:
-            program_key = str(program)  # Simple deduplication
-            if program_key not in unique_programs or score > unique_programs[program_key][1]:
-                explanation = self.explain_program(prg_str)
-                unique_programs[program_key] = (program, score, prg_str, explanation)
+        # Step 3: Deduplicate and enrich with explanations
+        unique_programs = self._deduplicate_and_enrich(validated_programs)
+
+        # Step 4: Format final output
+        formated_output = self._format_output(unique_programs, input_grid, top_k=top_k)
         
-        # Get top programs sorted by score
-        top_programs = sorted(unique_programs.values(), key=lambda x: x[1], reverse=True)[:top_k]
-        
-        self.logger.info(f"Found {len(top_programs)} valid programs (top score: {top_programs[0][1] if top_programs else 0})")
-        return top_programs
+        return formated_output

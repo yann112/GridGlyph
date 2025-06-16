@@ -2,12 +2,10 @@ import pytest
 import json
 import logging
 
-from tools.program_synthesizer_tool import ProgramSynthesizerTool
-from tools.grid_analyzer_tool import GridAnalyzerTool
+from tools.multi_grid_analyzer_tool import MultiGridAnalyzerTool
 from core.llm import OpenRouterClient
 from core.synthesis_engine import SynthesisEngine
 from core.dsl_interpreter import DslInterpreter
-from strategies.strategy_factory import MultiInputStrategyFactory
 
 
 @pytest.fixture
@@ -27,7 +25,7 @@ def stable_llm_client():
     return OpenRouterClient(
         # model="mistralai/devstral-small:free",
         # model=r"deepseek/deepseek-r1-0528-qwen3-8b:free",
-        model=r"meta-llama/llama-3.1-70b-instruct",
+        model=r"mistralai/ministral-8b",
         temperature=0.0,      # Completely deterministic
         top_p=0.1,           # Very restrictive sampling
         top_k=1,             # Most likely token only
@@ -53,7 +51,7 @@ def creative_llm_client():
     return OpenRouterClient(
         # model="mistralai/devstral-small:free",
         # model=r"deepseek/deepseek-r1-0528-qwen3-8b:free",
-        model=r"meta-llama/llama-3.1-70b-instruct",
+        model=r"mistralai/ministral-8b",
         temperature=0.7,      # Introduces randomness
         top_p=0.9,           # Wide token sampling
         top_k=50,            # Considers more tokens
@@ -217,12 +215,21 @@ def train_results():
     }
     return build_programs_from_train_results(train_results)
 
-
-def test_generalizing_strategy_with_real_data(
-    stable_llm_client,
+        
+def test_multi_grid_analyzer_tool_integration(
     creative_llm_client,
     train_results
 ):
+    """
+    Tests MultiGridAnalyzerTool end-to-end with real data.
+    
+    Goes through:
+    - Tool initialization
+    - Schema validation
+    - Agent delegation
+    - LLM interaction
+    """
+    # Arrange: Get sample data from fixtures
     data = {
         'train': [
             {'input': [[7, 9], [4, 3]],
@@ -247,38 +254,17 @@ def test_generalizing_strategy_with_real_data(
             }
             ],
         'test': [{'input': [[3, 2], [7, 8]]}]}
-    # Manually create tools
-    analyze_tool = GridAnalyzerTool(llm=creative_llm_client)
-    synth_engine = SynthesisEngine()
-    synth_tool = ProgramSynthesizerTool(llm=stable_llm_client, synthesizer=synth_engine)
+    # Arrange: Create tool with injected LLM
+    tool = MultiGridAnalyzerTool(llm=creative_llm_client)
 
-    # Set up logger
-    logger = logging.getLogger(__name__)
 
-    # Create strategy
-    strategy = MultiInputStrategyFactory.create_strategy(
-        "generalize",
-        analyzer_tool=analyze_tool,
-        synthesizer_tool=synth_tool,
-        logger=logger
-    )
-
-    # Act
-    generic_solution = strategy.generalize(
-        train_examples=data,
-        train_results=train_results
-    )
-
-    # Assert
-    assert isinstance(generic_solution, dict), "Solution must be a dictionary"
-    assert 'solution' in generic_solution, "Must contain a 'solution' key"
-    assert 'confidence' in generic_solution, "Must include 'confidence' score"
-    assert 0 <= generic_solution['confidence'] <= 1, "'confidence' must be between 0 and 1"
-    assert 'success' in generic_solution, "Must indicate if generalization was successful"
-    assert isinstance(generic_solution['success'], bool), "'success' must be a boolean"
-
-    # Optional fields
-    if 'alternatives' in generic_solution:
-        assert isinstance(generic_solution['alternatives'], list), "'alternatives' must be a list"
-    if 'explanation' in generic_solution:
-        assert isinstance(generic_solution['explanation'], str), "'explanation' must be a string"
+    raw_output = tool._run(
+        data = data,
+        train_results = train_results,
+        prompt_hint = None,
+        # analysis_mode="results_only"
+        analysis_mode="features_only"
+        # analysis_mode="both"
+        )
+    
+    assert raw_output

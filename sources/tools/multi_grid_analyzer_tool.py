@@ -12,17 +12,18 @@ from core.features_analysis import ProblemAnalyzer
 
 
 class MultiGridAnalyzerInput(BaseModel):
-    examples: List[Dict[str, List[List[int]]]] = Field(..., description="The input ARC grid.")
-    train_results: Dict[str, Any] = Field(..., description="Result from the single grid strategy")
+    data: Dict[str, Any] = Field(..., description="Full ARC task dictionary including train and test grids")
+    train_results: Optional[Dict[str, Any]] = Field(None, description="Results from solving each puzzle individually")
     prompt_hint: Optional[str] = Field(None, description="Optional extra instructions or feedback.")
-
 
 class MultiGridAnalyzerTool(BaseTool):
     name: str = "multi_grid_analyzer"
     description: str = "Analyzes multiple grid transformations to find a generalizable pattern."
     args_schema: Type[BaseModel] = MultiGridAnalyzerInput
     _agent: AnalyzeAgent = PrivateAttr()
-    
+    class Config:
+        extra = 'allow' # Allows passing llm even though not in schema
+
     def __init__(self, llm: LLMClient = None, **kwargs):
         super().__init__(**kwargs)
         self.llm = llm or OpenRouterClient() 
@@ -30,21 +31,28 @@ class MultiGridAnalyzerTool(BaseTool):
 
     def _run(
         self,
-        examples: List[Dict[str, List[List[int]]]],
-        train_results: Dict[str, Any],
-        prompt_hint: Optional[str] = None
+        data: Dict[str, Any],  # Contains 'train' and optionally 'test'
+        train_results: Optional[Dict[str, Any]],
+        prompt_hint: Optional[str] = None,
+        analysis_mode: str = "both"  # could be "both", "features_only", "results_only"
     ) -> dict:
         """
-        Analyzes multiple examples to find a unified transformation rule.
+        Runs multi-grid analysis on the full task dictionary.
         
         Args:
-            examples: List of input/output grid pairs
-            train_results: Results from solving each puzzle individually
+            data: Full ARC task {'train': [...], 'test': [...]}
+            train_results: Results from solving puzzles individually
+            prompt_hint: Optional instruction or feedback
             
         Returns:
-            dict: Contains generalized program, explanation, confidence, etc.
+            dict: Generalized transformation rule + metadata
         """
-        return self._agent.analyze_multi(examples, train_results, prompt_hint)
+        return self._agent.analyze(
+            data=data,
+            train_results=train_results,
+            prompt_hint=prompt_hint,
+            analysis_mode=analysis_mode
+        )
 
     def _arun(self, *args, **kwargs):
         raise NotImplementedError("Async mode not supported")

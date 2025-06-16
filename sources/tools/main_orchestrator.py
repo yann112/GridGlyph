@@ -16,13 +16,15 @@ class ARCSolverOrchestrator:
         self,
         single_strategy_name: str,
         multi_strategy_name:str,
-        analyzer_tool=None,
+        grid_analyzer_tool=None,
+        multi_grid_analyzer_tool=None,
         synthesizer_tool=None,
         logger: logging.Logger = None
             ):
         self.single_strategy_name = single_strategy_name
         self.multi_strategy_name = multi_strategy_name
-        self.analyzer_tool = analyzer_tool
+        self.grid_analyzer_tool = grid_analyzer_tool
+        self.multi_grid_analyzer_tool = multi_grid_analyzer_tool 
         self.synthesizer_tool = synthesizer_tool
         self.logger = logger or logging.getLogger(__name__)
         self.single_strategy = self._load_single_grid_strategy()
@@ -31,7 +33,7 @@ class ARCSolverOrchestrator:
     def _load_single_grid_strategy(self):
         return SingleInputStrategyFactory.create_strategy(
             self.single_strategy_name,
-            analyzer_tool=self.analyzer_tool,
+            analyzer_tool=self.grid_analyzer_tool,
             synthesizer_tool=self.synthesizer_tool,
             logger=self.logger
         )
@@ -39,7 +41,7 @@ class ARCSolverOrchestrator:
     def _load_multi_input_strategy(self):
         return MultiInputStrategyFactory.create_strategy(
             self.multi_strategy_name,
-            analyzer_tool=self.analyzer_tool,
+            analyzer_tool=self.multi_grid_analyzer_tool,
             synthesizer_tool=self.synthesizer_tool,
             logger=self.logger
         )
@@ -62,6 +64,9 @@ class ARCSolverOrchestrator:
         results = {}
         train_results = {}
         test_result = {}
+        # step 0
+        
+
 
         # Step 1: Solve all train examples individually
         train_examples = data.get("train", [])
@@ -81,20 +86,12 @@ class ARCSolverOrchestrator:
         results['train_results'] = train_results
         
         # step 2 find a generics solution
-        generic_solution = self._find_generics_solution(data, train_results)
-        # step 3 provide solution for tests
-        return results
-
-    def _find_generics_solution(self, data, train_results):
-        multi_strategy = self._load_multi_input_strategy()
-        
-        # Pass full train set + their individual results to generalize
-        generic_solution = multi_strategy.generalize(
-            train_examples=data["train"],
-            train_results=train_results
+        multi_grids_analysis = self.multi_grid_analyzer_tool._run(
+            data = data,
+            train_results = results['train_results'],
+            prompt_hint = None,
+            analysis_mode="train_results"
         )
-        
-        return generic_solution
         
         
          
