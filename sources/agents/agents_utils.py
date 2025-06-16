@@ -1,9 +1,11 @@
 # agents/agent_utils.py
 
 import numpy as np
-from typing import Dict, List, Any
+import random
+import logging
+from typing import List, Dict, Any, Union, Optional, Tuple, Mapping
 from core.features_analysis import ProblemAnalyzer
-
+from assets.symbols import SYMBOL_SETS_JSON
 
 class MultiGridFeatureCollector:
     def __init__(self, analyzer: ProblemAnalyzer = None):
@@ -84,3 +86,242 @@ class MultiGridFeatureCollector:
     def _analyze_pair(self, grid_a: np.ndarray, grid_b: np.ndarray, mode) -> dict:
         """Use ProblemAnalyzer to find transformation features between two grids"""
         return self.analyzer.analyze(grid_a, grid_b, mode).to_dict()
+    
+
+class SymbolicGridMapper:
+    def __init__(self, logger=None):
+        self.logger = logger or logging.getLogger(__name__)
+        self._symbol_set_dict = {item["id"]: item for item in SYMBOL_SETS_JSON["grid_glyphs"]}
+    
+    def map_grid(self, grid: List[List[int]], symbols: List) -> List[List[str]]:
+        """Map a numeric grid into symbolic form using selected set."""
+        unique_values = sorted(set(cell for row in grid for cell in row))
+        
+        value_to_symbol = {}
+        for idx, val in enumerate(unique_values):
+            if idx < len(symbols):
+                value_to_symbol[val] = symbols[idx]
+            else:
+                self.logger.warning(f"Not enough symbols in '{symbol_set_id}' for all unique values")
+                break
+        
+        return [[value_to_symbol[cell] for cell in row] for row in grid]
+
+    def map_input_output_pair(
+        self, input_grid: List[List[int]], output_grid: List[List[int]], symbol_set_id: str
+    ) -> Dict[str, Union[List[List[str]], Dict[int, str]]]:
+        """Map a single input/output pair using the specified symbol set."""
+        symbols = self._symbol_set_dict[symbol_set_id]["symbols"]
+
+        mapped_input = self.map_grid(input_grid, symbols)
+        mapped_output = self.map_grid(output_grid, symbols)
+
+        return {
+            "symbol_set_id": symbol_set_id,
+            "input": mapped_input,
+            "output": mapped_output,
+        }
+
+    def map_grid_with_mapping(self, grid: List[List[int]], mapping: Dict[int, str]) -> List[List[str]]:
+        """Map grid using a specific value-to-symbol mapping."""
+        return [[mapping[cell] for cell in row] for row in grid]
+
+    def map_test_input(
+        self, test_input: List[List[int]], symbol_set_id: str
+    ) -> Dict[str, Union[List[List[str]], Dict[int, str]]]:
+        """Map a test input grid using the specified symbol set."""
+        symbols = self._symbol_set_dict [symbol_set_id]["symbols"]
+        mapped, mapping = self.map_grid(test_input, symbols)
+
+        return {
+            "symbol_set_id": symbol_set_id,
+            "input": mapped,
+            "mapping": mapping
+        }
+
+    def generate_variants(
+        self, data: Dict[str, Any], symbol_set_ids: Optional[List[str]] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Generate symbolic variants of the entire dataset.
+
+        Args:
+            data: Dictionary with 'train' and/or 'test' keys
+            symbol_set_ids: Override symbol sets used for mapping
+
+        Returns:
+            List of variants, one per symbol set
+        """
+        if symbol_set_ids is None:
+            symbol_set_ids = list(self.symbol_sets.keys())
+
+        variants = []
+
+        for sid in symbol_set_ids:
+            self.logger.info(f"Generating symbolic variant: {sid}")
+            variant = {
+                "symbol_set_id": sid,
+                "examples": [],
+                "test_inputs": []
+            }
+
+            # Map training examples
+            if "train" in data:
+                for example in data["train"]:
+                    mapped = self.map_input_output_pair(
+                        example["input"],
+                        example["output"],
+                        sid
+                    )
+                    variant["examples"].append({
+                        "input": mapped["input"],
+                        "output": mapped["output"],
+                    })
+
+            # Map test inputs
+            if "test" in data:
+                for test_example in data["test"]:
+                    mapped = self.map_test_input(test_example["input"], sid)
+                    variant["test_inputs"].append({
+                        "input": mapped["input"],
+                    })
+
+            variants.append(variant)
+
+        return variants
+    
+    def generate_n_variants(
+        self,
+        input_grid: List[List[int]],
+        output_grid: Optional[List[List[int]]] = None,
+        n: int = 10,
+        shuffle_symbols: bool = True,
+        allow_repeats: bool = False
+    ) -> List[Dict[str, Any]]:
+        """
+        Generate N symbolic variants of the same puzzle.
+        
+        Args:
+            input_grid: Original input as list of lists (e.g., [[7, 9], [4, 3]])
+            output_grid: Optional expected output grid
+            n: Number of symbolic variants to generate
+            shuffle_symbols: If True, shuffles glyph order to create different mappings
+            allow_repeats: If True, allows reusing the same symbol set with new mappings
+            
+        Returns:
+            List of symbolic variant dictionaries
+        """
+        available_sets = list(self._symbol_set_dict.keys())
+        variants = []
+        used_mappings = set()  # To avoid exact duplicate variants
+
+        while len(variants) < n:
+            sid = random.choice(available_sets)
+
+            symbols = self._symbol_set_dict[sid]["symbols"][:]
+            if shuffle_symbols:
+                random.shuffle(symbols)
+
+            # Map input grid
+            mapped_input = self.map_grid(input_grid, symbols)
+
+            variant = {
+                "symbol_set_id": sid,
+                "examples": [],
+                "test_inputs": []
+            }
+
+            # Add example with output if available
+            if output_grid is not None:
+                mapped_output= self.map_grid(output_grid, symbols)
+                variant["examples"].append({
+                    "input": mapped_input,
+                    "output": mapped_output
+                })
+            else:
+                # For cases where only input is given
+                variant["examples"].append({
+                    "input": mapped_input
+                })
+
+            # Add test input
+            if output_grid is not None:
+                variant["test_inputs"].append({
+                    "input": mapped_input
+                })
+
+            variants.append(variant)
+
+        return variants
+
+    def format_grid(self, grid: List[List[str]]) -> str:
+        """Format a single grid into a string with aligned rows."""
+        return "\n".join([" ".join(row) for row in grid])
+
+    def format_example(self, example: Dict[str, Any], index: int) -> str:
+        """Format one input/output example as string."""
+        input_str = self.format_grid(example["input"])
+        output_str = self.format_grid(example["output"])
+        return f"Example {index}:\nInput:\n{input_str}\nOutput:\n{output_str}"
+
+    def format_test_input(self, test: Dict[str, Any]) -> str:
+        """Format test input as string."""
+        input_str = self.format_grid(test["input"])
+        return f"Test Input:\n{input_str}"
+
+    def format_variant(self, variant: Dict[str, Any], include_variant_header: bool = True) -> str:
+        """
+        Format an entire symbolic variant into a clean string.
+        
+        Args:
+            variant: A single variant dictionary with examples and test inputs
+            include_variant_header: Whether to include '--- VARIANT: ... ---' line
+        
+        Returns:
+            Formatted string for LLM prompting or training
+        """
+        sid = variant["symbol_set_id"]
+        lines = []
+
+        if include_variant_header:
+            lines.append(f"--- VARIANT: {sid} ---\n")
+
+        # Add examples
+        for i, ex in enumerate(variant["examples"]):
+            lines.append(self.format_example(ex, i + 1))
+            lines.append("")  # Empty line between examples
+
+        # Add test inputs
+        if variant.get("test_inputs"):
+            for t in variant["test_inputs"]:
+                lines.append(self.format_test_input(t))
+                lines.append("")  # Spacing after test input
+
+        return "\n".join(lines)
+    
+    def format_variants_list(
+        self,
+        variants: List[Dict[str, Any]],
+        include_variant_headers: bool = True,
+        separator: str = "-" * 50
+    ) -> str:
+        """
+        Format a list of symbolic variants into one clean string.
+        
+        Args:
+            variants: List of variant dictionaries
+            include_variant_headers: Whether to show '--- VARIANT: runic ---'
+            separator: Separator between variants (only if multiple variants used)
+
+        Returns:
+            Full prompt-ready string
+        """
+        formatted = []
+        for i, variant in enumerate(variants):
+            variant_str = self.format_variant(variant, include_variant_header=include_variant_headers)
+            formatted.append(variant_str)
+
+            if i < len(variants) - 1 and separator:
+                formatted.append("\n\n" + separator + "\n")
+        
+        return "\n".join(formatted)

@@ -1,240 +1,242 @@
 # GridGlyph - Symbolic Puzzle Reasoning Engine
 
-## 🧠 Vision
+## Vision
 
-GridGlyph is a symbolic reasoning system that solves visual grid transformation puzzles by:
-- Mapping numeric grids to abstract symbol sets
-- Prompting LLMs to infer transformation logic
-- Synthesizing and testing code
-- Iterating until solution is found
+GridGlyph is a symbolic reasoning system that solves visual grid transformation puzzles by:  
+- Mapping numeric grids to abstract symbol sets  
+- Prompting LLMs to infer transformation logic  
+- Synthesizing and testing code  
+- Iterating until solution is found  
 
 This mimics how humans solve ARC puzzles — by seeing patterns, not pixels or numbers.
 
 ---
 
-## 🛠️ Phase 1: Symbolic Abstraction Layer
+## Phase 1: Symbolic Abstraction Layer
 
-### Step 1: Build Symbol Dictionary (`symbols.json`)
-- Define multiple symbolic sets:
-  - Runic
-  - Katakana
-  - Arrows
-  - Box Drawing
-  - Egyptian Hieroglyphs
-  - Math Symbols
-  - Emoji
-  - Dice Dots
-  - Braille
-  - Cypriot Syllabary
+### Step 1: Build Symbol Dictionary (symbols.json)  
+- Define multiple symbolic sets:  
+  - Runic  
+  - Katakana  
+  - Arrows  
+  - Box Drawing  
+  - Egyptian Hieroglyphs  
+  - Math Symbols  
+  - Emoji  
+  - Dice Dots  
+  - Braille  
+  - Cypriot Syllabary  
 
-Each set includes:
-- Description
-- List of 10 symbols for [0..9]
+Each set includes:  
+- Description  
+- List of 10 symbols for \[0..9\]  
 - Recommended use case (e.g., mirroring, movement, classification)
 
-### Step 2: Create Symbol Mapping Engine
-- Function: `map_grid_to_symbols(grid, symbol_set)`
-- Function: `detect_background_and_objects(grid)`
-- Function: `suggest_best_symbol_set(puzzle_type)`
+### Step 2: Create Symbol Mapping Engine  
+- Function: `map_grid_to_symbols(grid, symbol_set)`  
+- Function: `detect_background_and_objects(grid)`  
+- Function: `suggest_best_symbol_set(puzzle_type)`  
 
-### Step 3: Add Symbol Set Diversity
-- For each puzzle → try 2–3 different symbol sets
-- Helps LLM generalize better
-- Avoids numeric bias
-
----
-
-## 🔍 Phase 2: Enhanced Analyzer Tool
-
-### Step 4: Build Symbolic Grid Prompt Generator
-- Input: list of input/output grid pairs
-- Output: few-shot prompt with mapped symbolic grids
-
-Example:
-
-Input:
-[[7, 9], [4, 3]]
-
-Mapped with runic:
-ᚠ ᛉ
-ᛟ ᛃ
-
-Output:
-ᚠ ᛉ ᚠ ᛉ ᚠ ᛉ
-ᛟ ᛃ ᛟ ᛃ ᛟ ᛃ
-ᛉ ᚠ ᛉ ᚠ ᛉ ᚠ
-ᛃ ᛟ ᛃ ᛟ ᛃ ᛟ
-ᚠ ᛉ ᚠ ᛉ ᚠ ᛉ
-ᛟ ᛃ ᛟ ᛃ ᛟ ᛃ
-
-Prompt LLM with symbolic variants to get clearer rule inference.
+### Step 3: Add Symbol Set Diversity  
+- For each puzzle → try 2–3 different symbol sets  
+- Helps LLM generalize better  
+- Avoids numeric bias  
 
 ---
 
-## 🤖 Phase 3: Rule-to-Code Synthesis
+## Phase 2: Enhanced Analyzer Tool
 
-### Step 5: Rule Parser
-- Extract key terms from LLM response:
-  - "mirror", "repeat", "swap", "rotate"
-- Build structured rule representation
-
-### Step 6: Code Synthesizer
-- Converts natural language rule into Python function
-- Uses templates like:
-  - mirror_rows
-  - tile_horizontally
-  - rotate_clockwise
-  - move_down
-- Generates clean code from parsed rule
+### Step 4: Build Symbolic Grid Prompt Generator  
+- Input: list of input/output grid pairs  
+- Output: few-shot prompt with mapped symbolic grids  
 
 Example:
+
+Input:  
+\[\[7, 9\], \[4, 3\]\]  
+
+Mapped with runic:  
+ᚠ ᛉ  
+ᛟ ᛃ  
+
+Output:  
+ᚠ ᛉ ᚠ ᛉ ᚠ ᛉ  
+ᛟ ᛃ ᛟ ᛃ ᛟ ᛃ  
+ᛉ ᚠ ᛉ ᚠ ᛉ ᚠ  
+ᛃ ᛟ ᛃ ᛟ ᛃ ᛟ  
+ᚠ ᛉ ᚠ ᛉ ᚠ ᛉ  
+ᛟ ᛃ ᛟ ᛃ ᛟ ᛃ  
+
+Prompt LLM with symbolic variants to get clearer rule inference.  
+
+---
+
+## Phase 3: Rule-to-Code Synthesis
+
+### Step 5: Rule Parser  
+- Extract key terms from LLM response:  
+  - "mirror", "repeat", "swap", "rotate"  
+- Build structured rule representation  
+
+### Step 6: Code Synthesizer  
+- Converts natural language rule into Python function  
+- Uses templates like:  
+  - mirror_rows  
+  - tile_horizontally  
+  - rotate_clockwise  
+  - move_down  
+- Generates clean code from parsed rule  
+
+Example:  
 If LLM says: “Repeat rows thrice then flip alternate ones”, synthesize:
 
+```python
 def transform(grid):
-    row1 = grid[0] * 3
-    row2 = grid[1] * 3
-    return [
-        row1,
-        row2,
-        row1[::-1],
-        row2[::-1],
-        row1,
-        row2
-    ]
+    row1 = grid\[0\] * 3  
+    row2 = grid\[1\] * 3  
+    return \[  
+        row1,  
+        row2,  
+        row1\[::-1\],  
+        row2\[::-1\],  
+        row1,  
+        row2  
+    \]
+```
 
 ---
 
-## 🔒 Phase 4: Quality Control & Scoring
+## Phase 4: Quality Control & Scoring
 
-### Step 7: Output Validator
-- Compares predicted output vs expected
-- Returns score between 0 and 1
-- Flags mismatches
+### Step 7: Output Validator  
+- Compares predicted output vs expected  
+- Returns score between 0 and 1  
+- Flags mismatches  
 
-### Step 8: Feedback Engine
-- If score < 1.0 → send feedback to analyzer
-- Suggest trying another symbolic variant
-- May re-prompt LLM with emoji or arrows instead of katakana
+### Step 8: Feedback Engine  
+- If score < 1\.0 → send feedback to analyzer  
+- Suggest trying another symbolic variant  
+- May re-prompt LLM with emoji or arrows instead of katakana  
 
 ---
 
-## 🔄 Phase 5: Iteration Loop
+## Phase 5: Iteration Loop
 
-### Step 9: Iteration Manager
-- Tracks which symbolic sets have been tried
-- Tries new ones if current one fails
-- Builds confidence over time
+### Step 9: Iteration Manager  
+- Tracks which symbolic sets have been tried  
+- Tries new ones if current one fails  
+- Builds confidence over time  
 
-Example flow:
-1. First iteration: uses Runic → gets partial rule
-2. Second iteration: uses Arrows → clarifies motion logic
-3. Third iteration: uses Katakana → confirms final output structure
+Example flow:  
+1\. First iteration: uses Runic → gets partial rule  
+2\. Second iteration: uses Arrows → clarifies motion logic  
+3\. Third iteration: uses Katakana → confirms final output structure  
 
 Each symbolic variant helps refine understanding.
 
 ---
 
-## 🧬 Phase 6: Puzzle Type Classifier
+## Phase 6: Puzzle Type Classifier
 
-### Step 10: Build Classifier
-- Heuristic-based or ML model
-- Detects likely puzzle type from input/output pair
+### Step 10: Build Classifier  
+- Heuristic-based or ML model  
+- Detects likely puzzle type from input/output pair  
 
-Example:
-Given:
-Input: [[0, 1], [2, 0]]
-Output: [[2, 0], [0, 1]]
+Example:  
+Given:  
+Input: \[\[0, 1\], \[2, 0\]\]  
+Output: \[\[2, 0\], \[0, 1\]\]  
 
-Classifier returns: "vertical_swap"
+Classifier returns: "vertical_swap"  
 
-Symbol mapper picks best set (e.g., arrows)
+Symbol mapper picks best set (e.g., arrows)  
 
-Mapped:
-Input:
-🟥 ⬇️
-⬇️ 🟦
+Mapped:  
+Input:  
+🟥 ⬇️  
+⬇️ 🟦  
 
-Output:
-⬇️ 🟥
-🟦 ⬇️
+Output:  
+⬇️ 🟥  
+🟦 ⬇️  
 
 LLM sees directional swap clearly.
 
 ---
 
-## 🧪 Phase 7: Testing & Evaluation
+## Phase 7: Testing & Evaluation
 
-### Step 11: Run End-to-End Tests
-- Try GridGlyph on real ARC puzzles
-- Measure success rate
-- Track symbolic sets that improve accuracy
+### Step 11: Run End-to-End Tests  
+- Try GridGlyph on real ARC puzzles  
+- Measure success rate  
+- Track symbolic sets that improve accuracy  
 
-### Step 12: Benchmark Across Models
-- GPT-4 / Claude / Mistral
-- Phi-3 / TinyT5 / Llama 3
+### Step 12: Benchmark Across Models  
+- GPT-4 / Claude / Mistral  
+- Phi-3 / TinyT5 / Llama 3  
 
-See which models benefit most from symbolic abstraction
-
----
-
-## 🧩 Phase 8: Advanced Features (Optional)
-
-### Step 13: Add Dynamic Symbol Swapping
-- On failure → auto-generate new symbolic version
-- Let LLM re-analyze with fresh cues
-
-### Step 14: Chain-of-Thought Templates
-- Pre-defined CoT examples per rule type
-- Insert them into prompts dynamically
-
-### Step 15: Symbolic Grammar Rules
-- Teach the agent to recognize common transformation patterns
-- E.g., "if mirrored rows appear, look for reverse_row() function"
+See which models benefit most from symbolic abstraction  
 
 ---
 
-## 🧰 Phase 9: Export as Reusable Tools
+## Phase 8: Advanced Features (Optional)
 
-### Step 16: Package as LangChain Tools
-- `SymbolMapperTool`
-- `RuleInferenceTool`
-- `CodeSynthesizerTool`
-- `GridExecutorTool`
-- `ScorerTool`
-- `FeedbackEngineTool`
+### Step 13: Add Dynamic Symbol Swapping  
+- On failure → auto-generate new symbolic version  
+- Let LLM re-analyze with fresh cues  
 
-### Step 17: Build CLI Interface
-- Run `gridglyph solve --puzzle my_puzzle.json`
-- Get rule description + Python function + test output
+### Step 14: Chain-of-Thought Templates  
+- Pre-defined CoT examples per rule type  
+- Insert them into prompts dynamically  
 
-### Step 18: Export Full Dataset
-- Generate thousands of symbolic puzzles
-- With known rules
-- Ready for training or prompting
+### Step 15: Symbolic Grammar Rules  
+- Teach the agent to recognize common transformation patterns  
+- E.g., "if mirrored rows appear, look for reverse_row() function"  
 
 ---
 
-## 🧠 Final Thought
+## Phase 9: Export as Reusable Tools
 
-You're building something revolutionary:
+### Step 16: Package as LangChain Tools  
+- SymbolMapperTool  
+- RuleInferenceTool  
+- CodeSynthesizerTool  
+- GridExecutorTool  
+- ScorerTool  
+- FeedbackEngineTool  
+
+### Step 17: Build CLI Interface  
+- Run `gridglyph solve --puzzle my_puzzle.json`  
+- Get rule description + Python function + test output  
+
+### Step 18: Export Full Dataset  
+- Generate thousands of symbolic puzzles  
+- With known rules  
+- Ready for training or prompting  
+
+---
+
+## Final Thought
+
+You're building something revolutionary:  
 > A symbolic reasoning engine where AI learns to solve visual logic puzzles by seeing transformations across many symbolic forms.
 
-And now you have a full roadmap to do it:
-- From symbolic abstraction
-- To rule inference
-- To code generation
-- To self-improving loop
+And now you have a full roadmap to do it:  
+- From symbolic abstraction  
+- To rule inference  
+- To code generation  
+- To self-improving loop  
 
 ---
 
-## 🚀 Want Me to Help You Build This?
+## Want Me to Help You Build This?
 
-Would you like me to generate:
-- ✅ The full symbolic dictionary (`symbols.json`)?
-- ✅ Python functions for mapping grids to symbols?
-- ✅ Few-shot prompt generator with symbolic variants?
-- ✅ Rule-to-code synthesizer module?
-- ✅ Complete `.md` roadmap file ready to export?
+Would you like me to generate:  
+- ✅ The full symbolic dictionary (`symbols.json`)  
+- ✅ Python functions for mapping grids to symbols  
+- ✅ Few-shot prompt generator with symbolic variants  
+- ✅ Rule-to-code synthesizer module  
+- ✅ Complete `.md` roadmap file ready to export  
 
 Let me know — I’ll help you build the full **GridGlyph** pipeline step-by-step.
 
