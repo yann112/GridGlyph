@@ -191,113 +191,130 @@ class SymbolicGridMapper:
         return variants
     
     def generate_n_variants(
-        self,
-        input_grid: List[List[int]],
-        output_grid: Optional[List[List[int]]] = None,
-        n: int = 10,
-        shuffle_symbols: bool = True,
-        allow_repeats: bool = False
-    ) -> List[Dict[str, Any]]:
-        """
-        Generate N symbolic variants of the same puzzle.
-        
-        Args:
-            input_grid: Original input as list of lists (e.g., [[7, 9], [4, 3]])
-            output_grid: Optional expected output grid
-            n: Number of symbolic variants to generate
-            shuffle_symbols: If True, shuffles glyph order to create different mappings
-            allow_repeats: If True, allows reusing the same symbol set with new mappings
+            self,
+            puzzle_data: Dict[str, Any],
+            n: int = 10,
+            shuffle_symbols: bool = True,
+            allow_repeats: bool = False
+        ) -> List[Dict[str, Any]]:
+            """
+            Generate N symbolic variants of the full puzzle.
             
-        Returns:
-            List of symbolic variant dictionaries
-        """
-        available_sets = list(self._symbol_set_dict.keys())
-        variants = []
-        used_mappings = set()  # To avoid exact duplicate variants
+            Args:
+                puzzle_data: Full puzzle dictionary with train/test grids
+                n: Number of symbolic variants to generate
+                shuffle_symbols: If True, shuffles glyphs to create different mappings
+                allow_repeats: If False, avoids repeating the same symbol mapping
+                
+            Returns:
+                List of symbolic variant dictionaries
+            """
+            # Step 1: Extract all training examples
+            train_examples = puzzle_data.get("train", [])
+            if not train_examples:
+                raise ValueError("No training examples found in puzzle_data")
 
-        while len(variants) < n:
-            sid = random.choice(available_sets)
+            # Step 2: Choose glyphset & generate variants
+            available_sets = list(self._symbol_set_dict.keys())
+            variants = []
+            used_mappings = set()
 
-            symbols = self._symbol_set_dict[sid]["symbols"][:]
-            if shuffle_symbols:
-                random.shuffle(symbols)
+            while len(variants) < n:
+                sid = random.choice(available_sets)
+                
+                # Step 3: Create symbol mapping
+                symbols = self._symbol_set_dict[sid]["symbols"][:]
+                if shuffle_symbols:
+                    random.shuffle(symbols)
+                
+                mapping_key = f"{sid}-{''.join(symbols)}"
+                if not allow_repeats and mapping_key in used_mappings:
+                    continue  # Skip duplicate mappings
 
-            # Map input grid
-            mapped_input = self.map_grid(input_grid, symbols)
+                # Step 4: Build symbolic version of all train examples
+                mapped_examples = []
 
-            variant = {
-                "symbol_set_id": sid,
-                "examples": [],
-                "test_inputs": []
-            }
+                for example in train_examples:
+                    mapped_input = self.map_grid(example["input"], symbols)
+                    mapped_output = self.map_grid(example["output"], symbols) if "output" in example else None
 
-            # Add example with output if available
-            if output_grid is not None:
-                mapped_output= self.map_grid(output_grid, symbols)
-                variant["examples"].append({
-                    "input": mapped_input,
-                    "output": mapped_output
+                    mapped_examples.append({
+                        "input": mapped_input,
+                        "output": mapped_output
+                    })
+
+                # Step 5: Map test inputs
+                test_inputs = []
+                for test in puzzle_data.get("test", []):
+                    test_inputs.append({
+                        "input": self.map_grid(test["input"], symbols)
+                    })
+
+                # Step 6: Store variant
+                variants.append({
+                    "symbol_set_id": sid,
+                    "examples": mapped_examples,
+                    "test_inputs": test_inputs,
+                    "mapping": {i: s for i, s in enumerate(symbols)}
                 })
-            else:
-                # For cases where only input is given
-                variant["examples"].append({
-                    "input": mapped_input
-                })
 
-            # Add test input
-            if output_grid is not None:
-                variant["test_inputs"].append({
-                    "input": mapped_input
-                })
+                used_mappings.add(mapping_key)
 
-            variants.append(variant)
-
-        return variants
+            return variants
 
     def format_grid(self, grid: List[List[str]]) -> str:
         """Format a single grid into a string with aligned rows."""
         return "\n".join([" ".join(row) for row in grid])
 
-    def format_example(self, example: Dict[str, Any], index: int) -> str:
+    def format_example(self, example: Dict[str, Any], index: int = 1) -> str:
         """Format one input/output example as string."""
         input_str = self.format_grid(example["input"])
-        output_str = self.format_grid(example["output"])
-        return f"Example {index}:\nInput:\n{input_str}\nOutput:\n{output_str}"
+        output_str = self.format_grid(example["output"]) if "output" in example else ""
+        
+        lines = [f"Input:\n{input_str}"]
+        if output_str:
+            lines.append(f"Output:\n{output_str}")
+            
+        return "\n".join(lines)
 
     def format_test_input(self, test: Dict[str, Any]) -> str:
-        """Format test input as string."""
+        """Format test input for prompting."""
         input_str = self.format_grid(test["input"])
         return f"Test Input:\n{input_str}"
 
-    def format_variant(self, variant: Dict[str, Any], include_variant_header: bool = True) -> str:
+    def format_variant(
+        self,
+        variant: Dict[str, Any],
+        include_variant_header: bool = True
+    ) -> str:
         """
-        Format an entire symbolic variant into a clean string.
+        Format an entire symbolic variant into clean prompt-ready string.
         
         Args:
-            variant: A single variant dictionary with examples and test inputs
-            include_variant_header: Whether to include '--- VARIANT: ... ---' line
+            variant: Dictionary containing symbol_set_id + list of examples
+            include_variant_header: Show which symbol set was used
         
         Returns:
-            Formatted string for LLM prompting or training
+            Formatted string for LLM
         """
-        sid = variant["symbol_set_id"]
+        sid = variant.get("symbol_set_id", "unknown")
         lines = []
 
         if include_variant_header:
             lines.append(f"--- VARIANT: {sid} ---\n")
 
-        # Add examples
-        for i, ex in enumerate(variant["examples"]):
-            lines.append(self.format_example(ex, i + 1))
-            lines.append("")  # Empty line between examples
+        # Add each example in the variant
+        for idx, ex in enumerate(variant["examples"]):
+            lines.append(f"Example {idx + 1}:")
+            lines.append(self.format_example(ex))
+            lines.append("")  # Spacing
 
         # Add test inputs
-        if variant.get("test_inputs"):
-            for t in variant["test_inputs"]:
-                lines.append(self.format_test_input(t))
-                lines.append("")  # Spacing after test input
+        for test in variant.get("test_inputs", []):
+            lines.append(self.format_test_input(test))
+            lines.append("")  # Spacing
 
-        return "\n".join(lines)
+        return "\n".join(lines).strip()
     
     def format_variants_list(
         self,
@@ -317,11 +334,12 @@ class SymbolicGridMapper:
             Full prompt-ready string
         """
         formatted = []
+        
         for i, variant in enumerate(variants):
             variant_str = self.format_variant(variant, include_variant_header=include_variant_headers)
             formatted.append(variant_str)
 
             if i < len(variants) - 1 and separator:
-                formatted.append("\n\n" + separator + "\n")
-        
+                formatted.append(separator)
+
         return "\n".join(formatted)

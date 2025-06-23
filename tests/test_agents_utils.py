@@ -9,32 +9,6 @@ from core.features_analysis import ProblemAnalyzer
 import pytest
 from fixtures import train_data_0
 
-# @pytest.fixture
-# def sample_arc_data():
-#     return {
-#         'train': [
-#             {'input': [[7, 9], [4, 3]],
-#              'output': [
-#                  [7, 9, 7, 9, 7, 9],
-#                  [4, 3, 4, 3, 4, 3],
-#                  [9, 7, 9, 7, 9, 7],
-#                  [3, 4, 3, 4, 3, 4],
-#                  [7, 9, 7, 9, 7, 9],
-#                  [4, 3, 4, 3, 4, 3]
-#              ]},
-#             {'input': [[8, 6], [6, 4]],
-#              'output': [
-#                  [8, 6, 8, 6, 8, 6],
-#                  [6, 4, 6, 4, 6, 4],
-#                  [6, 8, 6, 8, 6, 8],
-#                  [4, 6, 4, 6, 4, 6],
-#                  [8, 6, 8, 6, 8, 6],
-#                  [6, 4, 6, 4, 6, 4]
-#              ]},
-#         ],
-#         'test': [{'input': [[3, 2], [7, 8]]}]
-#     }
-    
 
 def test_multi_grid_feature_collector_smoke(train_data_0):
     """
@@ -79,17 +53,8 @@ def test_symbolic_mapper_n_variants_single_inputs(train_data_0):
     """
     mapper = SymbolicGridMapper()
 
-    input_grid = [[7, 9], [4, 3]]
-    output_grid = [
-        [7, 9, 7, 9, 7, 9],
-        [4, 3, 4, 3, 4, 3],
-        [9, 7, 9, 7, 9, 7],
-        [3, 4, 3, 4, 3, 4],
-        [7, 9, 7, 9, 7, 9],
-        [4, 3, 4, 3, 4, 3]
-    ]
 
-    variants = mapper.generate_n_variants(input_grid, output_grid, n=30)
+    variants = mapper.generate_n_variants(train_data_0, n=30)
 
     prompt = mapper.format_variants_list(variants, include_variant_headers=False)
     assert type(prompt) is str

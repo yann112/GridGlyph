@@ -2,16 +2,62 @@ import os
 from dotenv import load_dotenv
 import requests
 import logging
+from typing import Optional, Union, Any, Dict
 from abc import ABC, abstractmethod
+from PIL import Image
+import requests
+import base64
+from io import BytesIO
+import logging
+import base64
+import torch
+from transformers import AutoModel, AutoTokenizer
+from urllib.request import urlopen
 
 load_dotenv()
 
 
 class LLMClient(ABC):
+    """
+    Abstract base class for language model clients.
+    
+    Supports both text-only and vision-language models.
+    All clients must implement the __call__ method.
+    """
+
+    def __init__(self, *args, **kwargs):
+        """
+        Generic constructor to allow flexible initialization.
+        
+        Subclasses should extract required args/kwargs in _init_impl().
+        """
+        self._config = kwargs.copy()
+        self._init_impl(*args, **kwargs)
+
+
     @abstractmethod
-    def __call__(self, prompt: str) -> str:
-        """Call the language model with a prompt and return the response."""
+    def __call__(
+        self,
+        prompt: str,
+        image: Optional[Union[str, Image.Image]] = None,
+        **kwargs
+    ) -> str:
+        """
+        Call the model with a prompt and optional image input.
+
+        Args:
+            prompt (str): The main instruction or question.
+            image (str or PIL.Image): Optional image input.
+            **kwargs: Additional parameters (e.g., system_message, temperature).
+
+        Returns:
+            str: Generated response from the model.
+        """
         pass
+
+    def get_config(self) -> dict:
+        """Return the raw config used to initialize the client."""
+        return self._config
 
 
 class OpenRouterClient(LLMClient):
@@ -99,12 +145,33 @@ class OpenRouterClient(LLMClient):
                 "https": proxy,
             }
 
-    def __call__(self, prompt: str, system_message: str = None) -> str:
+    def _encode_image(self, image: Union[str, Image.Image]) -> str:
+        if isinstance(image, str):
+            if image.startswith(("http://", "https://")): 
+                return image  # Use URL directly
+            else:
+                # Local file path → encode as base64
+                with open(image, "rb") as img_file:
+                    return f"data:image/png;base64,{base64.b64encode(img_file.read()).decode('utf-8')}"
+        elif isinstance(image, Image.Image):
+            # PIL Image object → encode in memory
+            buffered = BytesIO()
+            image.save(buffered, format=image.format or "PNG")
+            return f"data:image/png;base64,{base64.b64encode(buffered.getvalue()).decode('utf-8')}"
+        else:
+            raise ValueError("Image must be a path, URL, or PIL Image object")
+
+    def __call__(
+        self, prompt: str,
+        image: Optional[Union[str, Image.Image]] = None,
+        system_message: str = None
+        ) -> str:
         """
         Generate text using the configured language model.
         
         Args:
             prompt (str): The main prompt/question to send to the model.
+            image (Optional[Union[str, Image.Image]]): Optional image input (e.g., visual puzzle).
             system_message (str, optional): System message to set context/instructions.
                 Useful for setting behavior, output format, or role definition.
                 
@@ -125,8 +192,17 @@ class OpenRouterClient(LLMClient):
         messages = []
         if system_message:
             messages.append({"role": "system", "content": system_message})
-        messages.append({"role": "user", "content": prompt})
         
+        if image is not None:
+            encoded_image = self._encode_image(image)
+            content = [
+                {"type": "image_url", "image_url": {"url": encoded_image}},
+                {"type": "text", "text": prompt}
+            ]
+            messages.append({"role": "user", "content": content})
+        else:
+            messages.append({"role": "user", "content": prompt})
+
         # Build request data with all parameters
         data = {
             "model": self.model,
@@ -160,3 +236,133 @@ class OpenRouterClient(LLMClient):
         except (KeyError, IndexError) as e:
             self.logger.error(f"Error parsing response: {e}, Response text: {response.text}")
             return None
+
+
+class LocalMiniCPMVClient(LLMClient):
+    """
+    Local client for MiniCPM-V 2.6 model using HuggingFace Transformers.
+    
+    Supports both text and image inputs.
+    Designed to work with ROCm (HIP) when available.
+    """
+
+    def __init__(
+        self,
+        model_name: str = "openbmb/MiniCPM-Llama3-V-2_5",
+        device: str = None,
+        max_tokens: int = 1024,
+        temperature: float = 0.7,
+        top_p: float = 0.8,
+        repetition_penalty: float = 1.0,
+        logger=None,
+        **kwargs
+    ):
+        """
+        Initialize the local MiniCPM-V model.
+
+        Args:
+            model_name (str): HuggingFace model identifier.
+            device (str): Device to use ('cuda', 'cpu', or 'mps'). Defaults to auto-detect.
+            max_tokens (int): Max tokens to generate.
+            temperature (float): Sampling temperature.
+            top_p (float): Nucleus sampling threshold.
+            repetition_penalty (float): Penalty for repeated sequences.
+            logger: Optional logger instance.
+        """
+        super().__init__(**kwargs)
+        self.logger = logger or logging.getLogger(__name__)
+        self.model_name = model_name
+        self.max_tokens = max_tokens
+        self.temperature = temperature
+        self.top_p = top_p
+        self.repetition_penalty = repetition_penalty
+
+        # Set device
+        if device:
+            self.device = device
+        else:
+            if torch.cuda.is_available():
+                self.device = "cuda"
+            elif torch.backends.mps.is_available():
+                self.device = "mps"
+            elif hasattr(torch, "is_hip_available") and torch.is_hip_available():
+                self.device = "cuda"  # ROCm uses HIP but reports as CUDA
+            else:
+                self.device = "cpu"
+
+        self.logger.info(f"Using device: {self.device}")
+
+        try:
+            # Load tokenizer and model
+            self.tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+            self.model = (
+                AutoModel.from_pretrained(model_name, trust_remote_code=True)
+                .eval()
+                .to(self.device)
+            )
+            self.logger.info("MiniCPM-V model loaded successfully.")
+        except Exception as e:
+            self.logger.error(f"Error loading MiniCPM-V model: {e}")
+            raise
+
+    def _load_image(self, image_input: Union[str, Image.Image]) -> Image.Image:
+        """Load and return PIL image from path, URL, or object."""
+        if isinstance(image_input, str):
+            if image_input.startswith(("http://", "https://")): 
+                return Image.open(urlopen(image_input)).convert("RGB")
+            else:
+                return Image.open(image_input).convert("RGB")
+        elif isinstance(image_input, Image.Image):
+            return image_input.convert("RGB")
+        else:
+            raise ValueError("Image must be a path, URL, or PIL Image object")
+
+    def __call__(
+        self,
+        prompt: str,
+        image: Optional[Union[str, Image.Image]] = None,
+        system_message: Optional[str] = None,
+        **kwargs
+    ) -> str:
+        """
+        Generate response from MiniCPM-V given text and/or image.
+
+        Args:
+            prompt (str): User question or instruction.
+            image (Optional): Image input.
+            system_message (Optional[str]): System-level instruction/context.
+
+        Returns:
+            str: Generated response.
+        """
+        try:
+            # Prepare history
+            history = []
+            if system_message:
+                history.append({"role": "system", "content": system_message})
+
+            # Handle image input
+            if image is not None:
+                image_obj = self._load_image(image)
+                messages = [
+                    {"role": "user", "content": [image_obj, prompt]}  # Multimodal message
+                ]
+            else:
+                messages = [{"role": "user", "content": prompt}]
+
+            # Generate response
+            response = self.model.chat(
+                image=image_obj if image is not None else None,
+                msgs=messages,
+                tokenizer=self.tokenizer,
+                max_new_tokens=self.max_tokens,
+                temperature=self.temperature,
+                top_p=self.top_p,
+                repetition_penalty=self.repetition_penalty
+            )
+
+            return response
+
+        except Exception as e:
+            self.logger.error(f"Error during generation: {e}")
+            return f"[ERROR] Failed to generate response: {e}"
