@@ -2,7 +2,9 @@ from typing import Dict, Type
 from core.dsl_nodes import *
 
 class TransformationFactory:
-    OPERATION_MAP = {
+    OPERATION_MAP = { # Open curly brace
+        "shift_row": ShiftRowOrColumn,
+        "shift_column": ShiftRowOrColumn,
         'identity': Identity,
         'repeat_grid': RepeatGrid,
         'flip_h': FlipGridHorizontally,
@@ -16,6 +18,19 @@ class TransformationFactory:
         'mask_combinator': MaskCombinator,
         'shift_row_or_column': ShiftRowOrColumn,
         'sequence': Sequence,
+        'create_solid_color_grid': CreateSolidColorGrid,
+        'repeat_grid_horizontal': lambda **kwargs: RepeatGrid(
+                inner_command=Identity(),
+                horizontal_repeats=kwargs.get("horizontal_repeats"),
+                vertical_repeats=1
+            ),
+        'repeat_grid_vertical': lambda **kwargs: RepeatGrid(
+                inner_command=Identity(),
+                horizontal_repeats=1,
+                vertical_repeats=kwargs.get("vertical_repeats")
+            ),
+        'scale_grid': ScaleGrid,
+        'extract_bounding_box': ExtractBoundingBox,
     }
 
     @classmethod

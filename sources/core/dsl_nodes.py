@@ -84,8 +84,8 @@ class RepeatGrid(AbstractTransformationCommand):
         "type": "combinator",
         "requires_inner": True,
         "parameter_ranges": {
-            "vertical_repeats": (1, 4),
-            "horizontal_repeats": (1, 4)
+            "vertical_repeats": (1, 30),
+            "horizontal_repeats": (1, 30)
         }
     }
 
@@ -194,8 +194,8 @@ class SwapRowsOrColumns(AbstractTransformationCommand):
         "type": "atomic",
         "requires_inner": False,
         "parameter_ranges": {
-            "row_swap": (0, 9),  # Assuming max 10 rows
-            "col_swap": (0, 9),   # Assuming max 10 columns
+            "row_swap": (0, 30),  # Assuming max 10 rows
+            "col_swap": (0, 30),   # Assuming max 10 columns
             "swap_type": ["rows", "columns", "both"]
         }
     }
@@ -293,7 +293,7 @@ class ApplyToRow(AbstractTransformationCommand):
         "type": "combinator",
         "requires_inner": True,
         "parameter_ranges": {
-            "row_index": (0, 9)  # Assuming max 10 rows
+            "row_index": (0, 30)  # Assuming max 10 rows
         }
     }
 
@@ -414,9 +414,9 @@ class ShiftRowOrColumn:
     synthesis_rules = {
             "type": "atomic",
             "parameter_ranges": {
-                "row_index": [0, 9],
-                "col_index": [0, 9],
-                "shift_amount": [-5, 5],
+                "row_index": [0, 30],
+                "col_index": [0, 30],
+                "shift_amount": [-15, 15],
                 "wrap": [True, False]
             }
         }
@@ -461,7 +461,7 @@ class ShiftRowOrColumn:
                 else:
                     col = np.concatenate([col[-self.shift_amount:], np.zeros(-self.shift_amount, dtype=col.dtype)])
             grid[:, self.col_index] = col
-        return grid.tolist()
+        return grid
     
 class Sequence(AbstractTransformationCommand):
     """
@@ -514,3 +514,114 @@ class Sequence(AbstractTransformationCommand):
             "Useful for combining multiple small transformations into one full solution. "
             "Example: tile grid → flip row 2 → flip row 3"
         )
+        
+class CreateSolidColorGrid(AbstractTransformationCommand):
+    synthesis_rules = {
+        "type": "atomic",
+        "requires_inner": False,
+        "parameter_ranges": {
+            "rows": (1, 30),
+            "cols": (1, 30),
+            "fill_color": (0, 9)
+        }
+    }
+
+    def __init__(self, rows: int, cols: int, fill_color: int, logger: Optional[logging.Logger] = None):
+        super().__init__(logger)
+        self.rows = rows
+        self.cols = cols
+        self.fill_color = fill_color
+
+    def execute(self, input_grid: np.ndarray = None) -> np.ndarray:
+        """
+        Creates a new grid of specified dimensions filled with a single color.
+        Note: input_grid is ignored as this command creates a new grid.
+        """
+        self.logger.debug(f"Executing CreateSolidColorGrid: {self.rows}x{self.cols} with color {self.fill_color}")
+        return np.full((self.rows, self.cols), self.fill_color, dtype=int)
+
+    @classmethod
+    def describe(cls) -> str:
+        return """
+            Creates a new grid of specified dimensions filled with a single color.
+            Parameters:
+            - rows: The number of rows for the new grid.
+            - cols: The number of columns for the new grid.
+            - fill_color: The color value to fill the grid with.
+        """
+        
+class ScaleGrid(AbstractTransformationCommand):
+    synthesis_rules = {
+        "type": "atomic",
+        "requires_inner": False,
+        "parameter_ranges": {
+            "scale_factor": (1, 5)
+        }
+    }
+
+    def __init__(self, scale_factor: int, logger: Optional[logging.Logger] = None):
+        super().__init__(logger)
+        if scale_factor < 1:
+            raise ValueError("Scale factor must be at least 1.")
+        self.scale_factor = scale_factor
+
+    def execute(self, input_grid: np.ndarray) -> np.ndarray:
+        """
+        Scales up the input grid by repeating each pixel by the given factor.
+        Uses Kronecker product for pixel-wise scaling.
+        """
+        self.logger.debug(f"Executing ScaleGrid: Scaling by {self.scale_factor}x")
+        if input_grid is None:
+            raise ValueError("ScaleGrid requires an input grid.")
+
+        scaled_grid = np.kron(input_grid, np.ones((self.scale_factor, self.scale_factor), dtype=int))
+        return scaled_grid
+
+    @classmethod
+    def describe(cls) -> str:
+        return """
+            Scales up the input grid by repeating each pixel by a given integer factor.
+            This operation preserves the geometry of objects by enlarging individual pixels.
+            Parameter:
+            - scale_factor: The integer factor by which to scale the grid (e.g., 2 for 2x).
+        """
+        
+class ExtractBoundingBox(AbstractTransformationCommand):
+    synthesis_rules = {
+        "type": "atomic",
+        "requires_inner": False,
+        "parameter_ranges": {} # No parameters for this command currently
+    }
+
+    def __init__(self, logger: Optional[logging.Logger] = None):
+        super().__init__(logger)
+
+    def execute(self, input_grid: np.ndarray) -> np.ndarray:
+        """
+        Extracts the smallest rectangular subgrid that contains all non-background (non-zero) pixels.
+        If the input grid is entirely background, returns a 1x1 grid with color 0.
+        """
+        self.logger.debug("Executing ExtractBoundingBox")
+        if input_grid is None:
+            raise ValueError("ExtractBoundingBox requires an input grid.")
+
+        non_background_coords = np.where(input_grid != 0)
+
+        if non_background_coords[0].size == 0:
+            # Grid is entirely background, return a minimal 1x1 empty grid
+            self.logger.debug("Input grid is entirely background, returning 1x1 empty grid.")
+            return np.array([[0]], dtype=int)
+
+        min_row, max_row = non_background_coords[0].min(), non_background_coords[0].max()
+        min_col, max_col = non_background_coords[1].min(), non_background_coords[1].max()
+
+        # Slice the grid to get the bounding box
+        bounding_box = input_grid[min_row : max_row + 1, min_col : max_col + 1]
+        return bounding_box
+
+    @classmethod
+    def describe(cls) -> str:
+        return """
+            Extracts the smallest rectangular subgrid that encompasses all non-background (non-zero) pixels.
+            If the input grid contains only background pixels (0s), it returns a 1x1 grid with 0.
+        """

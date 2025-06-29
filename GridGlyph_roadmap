@@ -18,14 +18,7 @@ This mimics how humans solve ARC puzzles — by seeing patterns, not pixels or n
 - Define multiple symbolic sets:  
   - Runic  
   - Katakana  
-  - Arrows  
-  - Box Drawing  
-  - Egyptian Hieroglyphs  
-  - Math Symbols  
-  - Emoji  
-  - Dice Dots  
-  - Braille  
-  - Cypriot Syllabary  
+  -  etc..
 
 Each set includes:  
 - Description  
@@ -214,17 +207,5 @@ See which models benefit most from symbolic abstraction
 - With known rules  
 - Ready for training or prompting  
 
----
-
-## Final Thought
-
-You're building something revolutionary:  
-> A symbolic reasoning engine where AI learns to solve visual logic puzzles by seeing transformations across many symbolic forms.
-
-And now you have a full roadmap to do it:  
-- From symbolic abstraction  
-- To rule inference  
-- To code generation  
-- To self-improving loop  
 
 ---

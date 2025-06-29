@@ -26,6 +26,7 @@ SYMBOL_SETS_JSON = {
         "description": "Third refined set, providing excellent variety in form and maintaining strict neutrality for puzzle grid use.",
         "symbols": ["ウ", "ク", "ス", "テ", "ナ", "ハ", "マ", "ヌ", "ラ", "ル"]
         },
+        
         {
             "id": "emoji",
             "description": "Visually rich and distinct; great for attention-grabbing patterns but may distract in complex logic.",
@@ -112,7 +113,7 @@ SYMBOL_SETS_JSON = {
             "symbols": ["$", "€", "£", "¥", "₣", "₡", "₮", "₩", "₦", "₭"]
         }
     ],
-    "operation_glyphs": [
+    "sigils": [
       {
             "id": "runic",
             "description": "Ancient Germanic script with geometric clarity; excellent for mirroring, tiling, and symmetry tasks.",
