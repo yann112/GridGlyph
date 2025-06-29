@@ -608,14 +608,12 @@ class ExtractBoundingBox(AbstractTransformationCommand):
         non_background_coords = np.where(input_grid != 0)
 
         if non_background_coords[0].size == 0:
-            # Grid is entirely background, return a minimal 1x1 empty grid
             self.logger.debug("Input grid is entirely background, returning 1x1 empty grid.")
             return np.array([[0]], dtype=int)
 
         min_row, max_row = non_background_coords[0].min(), non_background_coords[0].max()
         min_col, max_col = non_background_coords[1].min(), non_background_coords[1].max()
 
-        # Slice the grid to get the bounding box
         bounding_box = input_grid[min_row : max_row + 1, min_col : max_col + 1]
         return bounding_box
 
