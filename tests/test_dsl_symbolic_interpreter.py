@@ -5,6 +5,20 @@ import numpy as np
 from core.dsl_symbolic_interpreter import SymbolicRuleParser, roman_to_int
 from pathlib import Path
 
+
+common_input_grid = np.array([
+    [1, 2, 3],
+    [4, 5, 6],
+    [7, 8, 9]
+], dtype=int)
+
+asymmetric_grid = np.array([
+    [1, 2, 0],
+    [3, 4, 0],
+    [0, 0, 0]
+], dtype=int)
+
+
 TEST_CASES = [
     ("Ⳁ", np.array([[1, 0], [0, 1]], dtype=int), np.array([[1, 0], [0, 1]], dtype=int)),
     ("↔", np.array([[1, 2], [3, 4]], dtype=int), np.array([[2, 1], [4, 3]], dtype=int)),
@@ -35,6 +49,24 @@ TEST_CASES = [
     ("⧈", np.array([[0, 0, 0, 0, 0], [0, 1, 1, 0, 0], [0, 1, 0, 0, 0], [0, 0, 0, 0, 0]], dtype=int), np.array([[1, 1], [1, 0]], dtype=int)),
     ("⧈", np.array([[0, 0], [0, 0]], dtype=int), np.array([[0]], dtype=int)),
     ("⧈", np.array([[1, 1, 0], [1, 0, 0], [0, 0, 0]], dtype=int), np.array([[1, 1], [1, 0]], dtype=int)),
+    ("⧀", np.array([[1, 2], [3, 4]]), np.array([1, 2, 3, 4])),
+    ("⧀", np.array([[5], [6], [7]]), np.array([5, 6, 7])),
+    ("⧀", np.array([[8, 9, 10]]), np.array([8, 9, 10])),
+    ("⧀", np.array([[0, 0], [0, 0]]), np.array([0, 0, 0, 0])),
+    ("⊡(I,I)", common_input_grid, np.array([[1]], dtype=int)),
+    ("⊡(II,III)", common_input_grid, np.array([[6]], dtype=int)),
+    ("⊡(III,II)", common_input_grid, np.array([[8]], dtype=int)),
+    ("↱V", np.array([[0]]), np.array([[5]], dtype=int)),
+    ("≡(↱V,↱V)", common_input_grid, np.array([[1]], dtype=int)),
+    ("≡(↱V,↱X)", common_input_grid, np.array([[0]], dtype=int)),
+    ("≗(Ⳁ,Ⳁ)", common_input_grid, np.array([[1]], dtype=int)),
+    ("≗(Ⳁ,↔)", asymmetric_grid, np.array([[0]], dtype=int)),
+    ("≡(⊡(I,I),↱∅)", np.array([[0,0],[0,0]], dtype=int), np.array([[1]], dtype=int)),
+    ("≡(⊡(I,I),↱∅)", np.array([[1,1],[1,1]], dtype=int), np.array([[0]], dtype=int)),
+    ("¿(≡(↱I,↱I),Ⳁ,↔)", common_input_grid, common_input_grid),
+    ("¿(≡(↱I,↱II),Ⳁ,↔)", common_input_grid, np.fliplr(common_input_grid)),
+    ("¿(≡(⊡(I,I),↱I),Ⳁ,↔)", common_input_grid, common_input_grid),
+    ("¿(≡(⊡(I,I),↱∅),Ⳁ,↔)", common_input_grid, np.fliplr(common_input_grid)),
 ]
 
 

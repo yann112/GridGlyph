@@ -3,59 +3,97 @@
 import re
 import logging
 from typing import Dict, List, Optional, Union, Any, Callable
+import numpy as np
 from core.transformation_factory import TransformationFactory
 from core.dsl_nodes import AbstractTransformationCommand
+from assets.symbols import ROM_VAL_MAP 
 
+
+def _split_balanced_args(s: str, num_args: int = -1) -> List[str]:
+    """
+    Splits a string of comma-separated arguments, respecting balanced parentheses.
+    If num_args is specified, it will attempt to return exactly that many arguments.
+    """
+    args = []
+    balance = 0
+    current_arg = []
+    
+    for char in s:
+        if char == '(' :
+            balance += 1
+        elif char == ')':
+            balance -= 1
+        
+        if char == ',' and balance == 0:
+            args.append("".join(current_arg).strip())
+            current_arg = []
+        else:
+            current_arg.append(char)
+            
+    args.append("".join(current_arg).strip()) # Add the last argument
+
+    if num_args != -1 and len(args) != num_args:
+        # This part handles cases where the top-level regex might be too greedy
+        # leading to an incorrect number of arguments initially.
+        # It attempts a fallback split on the last argument if needed.
+        if len(args) < num_args and len(args) > 0:
+            last_arg = args.pop()
+            split_last = [x.strip() for x in last_arg.split(',')]
+            args.extend(split_last)
+            
+    if num_args != -1 and len(args) != num_args:
+        raise ValueError(f"Expected {num_args} arguments but found {len(args)} after balanced split for string: '{s}'")
+
+    return args
 
 # Roman numerals to int helper
-def roman_to_int(s: str) -> int:
+def  roman_to_int(s: str) -> int:
     """Converts a Roman numeral string (up to XXX) to an integer."""
     # A complete map is simpler for this limited range than a full parsing algorithm
-    rom_val_map = {
-        '∅':0, 'I': 1, 'II': 2, 'III': 3, 'IV': 4, 'V': 5, 'VI': 6, 'VII': 7, 'VIII': 8, 'IX': 9,
-        'X': 10, 'XI': 11, 'XII': 12, 'XIII': 13, 'XIV': 14, 'XV': 15, 'XVI': 16, 'XVII': 17, 'XVIII': 18, 'XIX': 19,
-        'XX': 20, 'XXI': 21, 'XXII': 22, 'XXIII': 23, 'XXIV': 24, 'XXV': 25, 'XXVI': 26, 'XXVII': 27, 'XXVIII': 28, 'XXIX': 29,
-        'XXX': 30
-    }
+
     # Convert to upper case for case-insensitivity
-    val = rom_val_map.get(s.upper())
+    val = ROM_VAL_MAP.get(s.upper())
     if val is None:
         raise ValueError(f"Invalid or out-of-range Roman numeral: {s}. Max supported is XXX.")
     return val
 
 
+# Define a safe eval environment for lambdas (optional but recommended for security)
+# This prevents arbitrary code execution if symbolic strings are from untrusted sources
+_SAFE_EVAL_GLOBALS = {"np": np}
+_SAFE_EVAL_LOCALS = {}
+
+
 SYMBOL_RULES = {
     "identity": {"sigil": "Ⳁ"},
+    "get_constant": {
+        "pattern": r"^↱(?P<value>\d+)$",
+        "transform_params": lambda m: {"value": int(m["value"])} # m is match object here
+    },
     "map_numbers": {
         "pattern": r"^⇒\((?P<old>\d+)→(?P<new>\d+)\)$",
-        "transform_params": lambda m: {"mapping": {int(m["old"]): int(m["new"])}}
+        "transform_params": lambda m: {"mapping": {int(m["old"]): int(m["new"])}} # m is match object here
     },
     "flip_h": {"sigil": "↔"},
     "flip_v": {"sigil": "↕"},
     "reverse_row": {"sigil": "↢"},
-    "shift_row": {
-        "pattern": r"^⮝\((?P<row_idx>[IVX]+),\s*(?P<shift_val>[IVX]+)\)$",
-        "transform_params": lambda m: {
-            "row_index": roman_to_int(m["row_idx"]) - 1,
+    "shift_row_or_column": {
+        "pattern": r"^(?P<direction>⮝|⮞)\((?P<idx>[IVX]+),\s*(?P<shift_val>[IVX]+)\)$", # Named group for direction
+        "transform_params": lambda m: { # m is the re.Match object here
+            "row_index": roman_to_int(m["idx"]) - 1 if m["direction"] == '⮝' else None,
+            "col_index": roman_to_int(m["idx"]) - 1 if m["direction"] == '⮞' else None,
             "shift_amount": roman_to_int(m["shift_val"]),
-            "col_index": None,
-            "wrap": True
-        }
-    },
-    "shift_column": {
-        "pattern": r"^⮞\((?P<col_idx>[IVX]+),\s*(?P<shift_val>[IVX]+)\)$",
-        "transform_params": lambda m: {
-            "col_index": roman_to_int(m["col_idx"]) - 1,
-            "shift_amount": roman_to_int(m["shift_val"]),
-            "row_index": None,
             "wrap": True
         }
     },
     "apply_to_row": {
-        "pattern": r"^→\((?P<row_idx>[IVX]+),\s*(?P<inner_command>.+)\)$",
+        "pattern": r"^→\((?P<row_idx>[IVX]+),\s*(?P<inner_command_str>.+)\)$",
         "transform_params": lambda m: {
             "row_index": roman_to_int(m["row_idx"]) - 1,
-            "inner_command_str": m["inner_command"]
+            "inner_command_str": m["inner_command_str"]
+        },
+        "nested_commands": {
+            "inner_command": "inner_command_str"
         }
     },
     "swap_rows_or_columns": {
@@ -66,24 +104,48 @@ SYMBOL_RULES = {
             "swap_type": "rows"
         }
     },
-    "repeat_grid_horizontal": {
+    "repeat_grid": { # Generic RepeatGrid
+        "pattern": r"^◨\((?P<inner_command_str>.+?)\s*,\s*(?P<vertical_repeats>[IVX]+)\s*,\s*(?P<horizontal_repeats>[IVX]+)\)$",
+        "transform_params": lambda m: {
+            "inner_command_str": m["inner_command_str"],
+            "vertical_repeats": roman_to_int(m["vertical_repeats"]),
+            "horizontal_repeats": roman_to_int(m["horizontal_repeats"])
+        },
+        "nested_commands": {
+            "inner_command": "inner_command_str"
+        }
+    },
+    "repeat_grid_horizontal_shortcut": {
         "pattern": r"^◨\((?P<count>[IVX]+)\)$",
         "transform_params": lambda m: {
+            "inner_command_str": "Ⳁ", # Injected Identity command string
             "vertical_repeats": 1,
             "horizontal_repeats": roman_to_int(m["count"])
-        }
+        },
+        "nested_commands": {
+            "inner_command": "inner_command_str"
+        },
+        "target_op_name": "repeat_grid" # This rule maps to the 'repeat_grid' factory operation
     },
-    "repeat_grid_vertical": {
+    "repeat_grid_vertical_shortcut": {
         "pattern": r"^⬒\((?P<count>[IVX]+)\)$",
         "transform_params": lambda m: {
+            "inner_command_str": "Ⳁ", # Injected Identity command string
             "vertical_repeats": roman_to_int(m["count"]),
             "horizontal_repeats": 1
-        }
+        },
+        "nested_commands": {
+            "inner_command": "inner_command_str"
+        },
+        "target_op_name": "repeat_grid" # This rule maps to the 'repeat_grid' factory operation
     },
     "sequence": {
-        "pattern": r"^⟹\((?P<cmds>.+)\)$",
+        "pattern": r"^⟹\((?P<commands_list_str>.+)\)$",
         "transform_params": lambda m: {
-            "commands_str": m["cmds"]
+            "commands_list_str": m["commands_list_str"]
+        },
+        "nested_commands": {
+            "commands": ("commands_list_str", "list")
         }
     },
     "create_solid_color_grid": {
@@ -91,7 +153,7 @@ SYMBOL_RULES = {
         "transform_params": lambda m: {
             "rows": roman_to_int(m["rows"]),
             "cols": roman_to_int(m["cols"]),
-            "fill_color": roman_to_int(m["fill_color"]) 
+            "fill_color": roman_to_int(m["fill_color"])
         }
     },
     "scale_grid": {
@@ -101,9 +163,98 @@ SYMBOL_RULES = {
         }
     },
     "extract_bounding_box": {"sigil": "⧈"},
+    "flatten_grid": {"sigil": "⧀"},
+
+    "compare_equality": {
+        "pattern": r"^==\((?P<command1_str>.+?)\s*,\s*(?P<command2_str>.+)\)$",
+        "transform_params": lambda m: {
+            "command1_str": m["command1_str"],
+            "command2_str": m["command2_str"]
+        },
+        "nested_commands": {
+            "command1": "command1_str",
+            "command2": "command2_str"
+        }
+    },
+    "alternate": {
+        "pattern": r"^⇌\((?P<first_command_str>.+?)\s*,\s*(?P<second_command_str>.+)\)$",
+        "transform_params": lambda m: {
+            "first_command_str": m["first_command_str"],
+            "second_command_str": m["second_command_str"]
+        },
+        "nested_commands": {
+            "first": "first_command_str",
+            "second": "second_command_str"
+        }
+    },
+    "conditional_transform": {
+        "pattern": r"^¿C\((?P<inner_command_str>.+?)\s*,\s*(?P<condition_func_literal>.+)\)$",
+        "transform_params": lambda m: {
+            "inner_command_str": m["inner_command_str"],
+            "condition_func": eval(m["condition_func_literal"], _SAFE_EVAL_GLOBALS, _SAFE_EVAL_LOCALS)
+        },
+        "nested_commands": {
+            "inner_command": "inner_command_str"
+        }
+    },
+    "mask_combinator": {
+        "pattern": r"^M\((?P<inner_command_str>.+?)\s*,\s*(?P<mask_func_literal>.+)\)$",
+        "transform_params": lambda m: {
+            "inner_command_str": m["inner_command_str"],
+            "mask_func": eval(m["mask_func_literal"], _SAFE_EVAL_GLOBALS, _SAFE_EVAL_LOCALS)
+        },
+        "nested_commands": {
+            "inner_command": "inner_command_str"
+        }
+    },
+    "get_element": {
+        "pattern": r"^⊡\((?P<row_idx>[IVX]+),\s*(?P<col_idx>[IVX]+)\)$",
+        "transform_params": lambda m: {
+            "row_index": roman_to_int(m["row_idx"]) - 1,
+            "col_index": roman_to_int(m["col_idx"]) - 1
+        }
+    },
+    "get_constant": {
+    "pattern": r"^↱(?P<value>[IVX∅]+)$",
+    "transform_params": lambda m: {"value": roman_to_int(m["value"])},
+    "returns_literal": True
+},
+    "compare_equality": {
+        "pattern": r"^≡\((?P<all_commands_str>.+)\)$",
+        "transform_params": lambda m: {
+            "command1_str": _split_balanced_args(m["all_commands_str"], 2)[0],
+            "command2_str": _split_balanced_args(m["all_commands_str"], 2)[1]
+        },
+        "nested_commands": {
+            "command1": "command1_str",
+            "command2": "command2_str"
+        }
+    },
+    "compare_grid_equality": {
+        "pattern": r"^≗\((?P<all_commands_str>.+)\)$",
+        "transform_params": lambda m: {
+            "command1_str": _split_balanced_args(m["all_commands_str"], 2)[0],
+            "command2_str": _split_balanced_args(m["all_commands_str"], 2)[1]
+        },
+        "nested_commands": {
+            "command1": "command1_str",
+            "command2": "command2_str"
+        }
+    },
+    "if_else_condition": {
+        "pattern": r"^¿\((?P<all_commands_str>.+)\)$",
+        "transform_params": lambda m: {
+            "condition_str": _split_balanced_args(m["all_commands_str"], 3)[0],
+            "true_branch_str": _split_balanced_args(m["all_commands_str"], 3)[1],
+            "false_branch_str": _split_balanced_args(m["all_commands_str"], 3)[2]
+        },
+        "nested_commands": {
+            "condition": "condition_str",
+            "true_branch": "true_branch_str",
+            "false_branch": "false_branch_str"
+        }
+    },
 }
-
-
 
 class SymbolicRuleParser:
     def __init__(self, factory: TransformationFactory = None):
@@ -134,52 +285,48 @@ class SymbolicRuleParser:
                 }
                 if "transform_params" in rule:
                     entry["transform_params"] = rule["transform_params"]
+                if "nested_commands" in rule:
+                    entry["nested_commands"] = rule["nested_commands"]
+                if "target_op_name" in rule: # Store target_op_name
+                    entry["target_op_name"] = rule["target_op_name"]
                 compiled[pattern] = entry
             else:
                 raise ValueError(f"Rule must define 'sigil' or 'pattern': {op_name}")
         return compiled
 
-    # This method is for top-level '+' split only, not for nested commas
     def tokenize_expression(self, expr: Union[str, List[str]]) -> List[str]:
         if isinstance(expr, str):
-            # This split assumes '+' is the only top-level sequence delimiter.
             return [token.strip() for token in expr.split("+")]
         else:
             return expr
 
-    # This parse_rule handles the top-level '+' sequences
     def parse_rule(self, rule: Union[str, List[str]]) -> AbstractTransformationCommand:
         tokens = self.tokenize_expression(rule)
         commands = []
 
         for token in tokens:
-            cmd = self.parse_token(token) # parse_token is now recursive!
+            cmd = self.parse_token(token)
             if cmd:
                 commands.append(cmd)
 
         if len(commands) == 1:
             return commands[0]
         elif len(commands) > 1:
-            # Here, the 'commands' list already contains parsed command objects
             return self.factory.create_operation("sequence", commands=commands)
         else:
             return self.factory.create_operation("identity")
 
-    # This is the helper for splitting comma-separated commands *within* a sequence.
-    # It must handle nested parentheses correctly.
     def _split_sequence_commands(self, command_string: str) -> List[str]:
         commands = []
         balance = 0
         current_command_chars = []
-        
-        # self.logger.debug(f"Splitting sequence inner string: '{command_string}'")
-        
+
         for i, char in enumerate(command_string):
             if char == '(':
                 balance += 1
             elif char == ')':
                 balance -= 1
-            
+
             if char == ',' and balance == 0:
                 cmd_part = "".join(current_command_chars).strip()
                 if cmd_part:
@@ -187,65 +334,79 @@ class SymbolicRuleParser:
                 current_command_chars = []
             else:
                 current_command_chars.append(char)
-        
+
         if current_command_chars:
             final_part = "".join(current_command_chars).strip()
             if final_part:
                 commands.append(final_part)
-            
+
         final_commands = [cmd for cmd in commands if cmd]
-        # self.logger.debug(f"Split result for sequence inner: {final_commands}")
         return final_commands
 
     def parse_token(self, token: str) -> Optional[AbstractTransformationCommand]:
         token = token.strip()
-        # self.logger.debug(f"Parsing token: '{token}'")
+        self.logger.debug(f"Parsing token: '{token}'")
 
-        # Try exact sigil match first (atomic commands)
+        # Try exact sigil match first for simple atomic commands
         for pattern, data in self._compiled_rules.items():
-            if data.get("original_sigil"):
+            if data.get("original_sigil") and "pattern" not in SYMBOL_RULES.get(data["operation"], {}):
                 if token == data["original_sigil"]:
+                    self.logger.debug(f"Matched sigil '{token}' for operation '{data['operation']}'")
                     return self.factory.create_operation(data["operation"])
 
-        # Try regex patterns for all operations (including compound ones)
+        # Try regex patterns for all operations
         for pattern, data in self._compiled_rules.items():
-            # Skip sigil-based rules as they were handled
-            if data.get("original_sigil"):
+            # Skip sigil-only rules already handled above
+            if data.get("original_sigil") and "pattern" not in SYMBOL_RULES.get(data["operation"], {}):
                 continue
 
             match = pattern.match(token)
             if match:
-                raw_params = match.groupdict()
-                
-                # Apply transform_params to get structured parameters
+                self.logger.debug(f"Matched pattern for operation '{data['operation']}': '{token}'")
+
+                # IMPORTANT: Pass the full match object to transform_params
                 if "transform_params" in data:
-                    processed_params = data["transform_params"](raw_params)
+                    processed_params = data["transform_params"](match) # Pass 'match' object directly
+                    self.logger.debug(f"Transformed params: {processed_params}")
                 else:
-                    processed_params = raw_params # No transformation needed
+                    processed_params = match.groupdict() # Use groupdict if no transform_params
 
-                # --- RECURSIVE PARSING LOGIC HERE ---
-                if data["operation"] == "apply_to_row":
-                    inner_command_str = processed_params.pop("inner_command_str") # Get raw string
-                    # Recursively parse the inner command
-                    inner_command_obj = self.parse_token(inner_command_str)
-                    if not inner_command_obj:
-                        raise ValueError(f"Failed to parse inner command '{inner_command_str}' for apply_to_row")
-                    processed_params["inner_command"] = inner_command_obj
-                
-                elif data["operation"] == "sequence":
-                    commands_str = processed_params.pop("commands_str") # Get raw string
-                    # Use the special splitter for sequence commands
-                    raw_cmd_strings = self._split_sequence_commands(commands_str)
+                # Generic handling of nested commands based on 'nested_commands' rule
+                if "nested_commands" in data:
+                    for param_name_in_init, config in data["nested_commands"].items():
+                        # Determine if config is just a string (regex group name) or a tuple (group name + type)
+                        if isinstance(config, tuple):
+                            regex_group_name, parse_type = config
+                        else: # Default to "single" if just group name provided
+                            regex_group_name = config
+                            parse_type = "single"
 
-                    parsed_commands = []
-                    for cmd_str in raw_cmd_strings:
-                        cmd_obj = self.parse_token(cmd_str) # Recursively parse each command
-                        if not cmd_obj:
-                             raise ValueError(f"Failed to parse sequence command '{cmd_str}'")
-                        parsed_commands.append(cmd_obj)
-                    processed_params["commands"] = parsed_commands
+                        if regex_group_name not in processed_params:
+                            raise ValueError(f"Rule for '{data['operation']}' specifies nested command '{param_name_in_init}' linked to regex group '{regex_group_name}', but it was not found in parsed parameters from '{token}'. Raw params: {raw_params}")
 
-                # For other commands (atomic or simple combinators), processed_params are already final
-                return self.factory.create_operation(data["operation"], **processed_params)
+                        command_string_to_parse = processed_params.pop(regex_group_name) # Remove the raw string
+
+                        if parse_type == "single":
+                            parsed_cmd_obj = self.parse_token(command_string_to_parse)
+                            if not parsed_cmd_obj:
+                                raise ValueError(f"Failed to parse inner command '{command_string_to_parse}' for '{param_name_in_init}' in '{data['operation']}'")
+                            processed_params[param_name_in_init] = parsed_cmd_obj # Assign the parsed object
+                        elif parse_type == "list":
+                            raw_cmd_strings = self._split_sequence_commands(command_string_to_parse)
+                            parsed_commands_list = []
+                            for cmd_str in raw_cmd_strings:
+                                cmd_obj = self.parse_token(cmd_str)
+                                if not cmd_obj:
+                                    raise ValueError(f"Failed to parse sequence command '{cmd_str}' for '{param_name_in_init}' in '{data['operation']}'")
+                                parsed_commands_list.append(cmd_obj)
+                            processed_params[param_name_in_init] = parsed_commands_list # Assign the list of objects
+                        else:
+                            raise ValueError(f"Unknown nested command parse_type: {parse_type} for '{param_name_in_init}' in '{data['operation']}'")
+
+                # Determine the actual operation name to pass to the factory
+                final_op_name = data.get("target_op_name", data["operation"])
+
+                self.logger.debug(f"Final params for '{final_op_name}': {processed_params}")
+                return self.factory.create_operation(final_op_name, **processed_params)
 
         raise ValueError(f"Could not parse symbolic token: '{token}'")

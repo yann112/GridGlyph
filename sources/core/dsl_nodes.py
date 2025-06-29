@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
 import logging
 import numpy as np
-from typing import List, Optional
-
+from typing import List, Optional, Dict, Any, Tuple, Union
+from assets.symbols import ROM_VAL_MAP 
 
 class AbstractTransformationCommand(ABC):
     """
@@ -623,3 +623,242 @@ class ExtractBoundingBox(AbstractTransformationCommand):
             Extracts the smallest rectangular subgrid that encompasses all non-background (non-zero) pixels.
             If the input grid contains only background pixels (0s), it returns a 1x1 grid with 0.
         """
+
+class FlattenGrid(AbstractTransformationCommand):
+    
+    
+    """
+    Transforms a 2D numpy array into a 1D (flattened) numpy array.
+    """
+
+    synthesis_rules = {
+        "type": "atomic",
+        "requires_inner": False,
+        "parameter_ranges": {},
+    }
+
+    def __init__(self):
+        super().__init__()
+
+    def execute(self, grid: np.ndarray) -> np.ndarray:
+        if grid.ndim != 2:
+            raise ValueError(f"FlattenGrid expects a 2D grid, but got {grid.ndim} dimensions.")
+        return grid.flatten()
+
+    @classmethod
+    def describe(cls) -> str:
+        return "Flattens a 2D grid into a 1D array."
+    
+class GetElement(AbstractTransformationCommand):
+    """
+    Extracts a single element (color value) from the grid at the specified row and column.
+    Returns a 1x1 grid containing that element.
+    """
+    synthesis_rules = {
+        "type": "atomic",
+        "requires_inner": False,
+        "parameter_ranges": {
+            "row_index": "dynamic_row_index", # Indicates it depends on input grid dimensions
+            "col_index": "dynamic_col_index"  # Indicates it depends on input grid dimensions
+        }
+    }
+
+    def __init__(self, row_index: int, col_index: int, logger: logging.Logger = None):
+        super().__init__(logger=logger)
+        self.row_index = row_index
+        self.col_index = col_index
+
+    def execute(self, input_grid: np.ndarray) -> np.ndarray:
+        self.logger.debug(f"Executing GetElement for indices ({self.row_index}, {self.col_index}) "
+                         f"on grid shape: {input_grid.shape}")
+        rows, cols = input_grid.shape
+        if not (0 <= self.row_index < rows and 0 <= self.col_index < cols):
+            self.logger.error(f"Element indices ({self.row_index}, {self.col_index}) "
+                              f"out of bounds for grid of shape {input_grid.shape}")
+            raise IndexError(f"Element indices ({self.row_index}, {self.col_index}) out of bounds for grid of shape {input_grid.shape}")
+        
+        # Return a 1x1 grid containing the element
+        return np.array([[input_grid[self.row_index, self.col_index]]], dtype=int)
+
+    @classmethod
+    def describe(cls) -> str:
+        """Returns a human-readable description of the transformation type."""
+        return "Extract Single Element"
+
+
+class CompareEquality(AbstractTransformationCommand):
+    """
+    Compares two inputs for equality as single numerical values.
+    Inputs can be commands (producing 1x1 grids) or direct integer literals.
+    Returns a 1x1 grid containing 1 if the values are equal, otherwise returns 0.
+    """
+    synthesis_rules = {
+        "type": "combinator",
+        "requires_inner": True,
+        "parameter_ranges": {}
+    }
+
+    def __init__(self, command1: Union[AbstractTransformationCommand, int],
+                 command2: Union[AbstractTransformationCommand, int],
+                 logger: logging.Logger = None):
+        super().__init__(logger=logger)
+        self.command1 = command1
+        self.command2 = command2
+        self.logger.debug(f"Initialized CompareEquality with command1: {self.command1} and command2: {self.command2}")
+
+    def _get_scalar_from_arg(self, arg: Union[AbstractTransformationCommand, int], input_grid: np.ndarray) -> int:
+        """
+        Helper method to resolve an argument to a single integer scalar.
+        If it's a command, execute it and extract the single value from its 1x1 grid output.
+        If it's a literal int, return the int itself.
+        Raises ValueError if a command produces a multi-element grid.
+        """
+        if isinstance(arg, AbstractTransformationCommand):
+            result_grid = arg.execute(input_grid)
+            if result_grid.shape == (1, 1): # Ensure it's a 1x1 grid
+                return result_grid.item() # Extract the single integer value
+            else:
+                self.logger.error(f"Nested command '{str(arg)}' for scalar comparison returned grid of shape {result_grid.shape}, expected (1,1).")
+                raise ValueError("Scalar comparison argument must resolve to a single value.")
+        else: # It's already a literal integer
+            return arg
+
+    def execute(self, input_grid: np.ndarray) -> np.ndarray:
+        """
+        Compares the resolved scalar values of command1 and command2.
+        Returns a 1x1 grid with 1 if equal, 0 if not equal.
+        """
+        self.logger.debug(f"Executing CompareEquality command.")
+        try:
+            # Resolve both arguments to single scalar integers
+            scalar_val1 = self._get_scalar_from_arg(self.command1, input_grid)
+            scalar_val2 = self._get_scalar_from_arg(self.command2, input_grid)
+
+            are_equal = (scalar_val1 == scalar_val2) # Direct Python scalar comparison
+            
+            self.logger.info(f"Comparison of {str(self.command1)} (resolved to: {scalar_val1}) and {str(self.command2)} (resolved to: {scalar_val2}) resulted in: {are_equal}")
+            return np.array([[1 if are_equal else 0]], dtype=int)
+        except Exception as e:
+            self.logger.error(f"Error executing CompareEquality command: {e}", exc_info=True)
+            raise
+
+    @classmethod
+    def describe(cls) -> str:
+        return "Compares two inputs for scalar equality."
+    
+class GetConstant(AbstractTransformationCommand):
+    def __init__(self, value: int, logger: logging.Logger = None):
+        super().__init__(logger)
+        self.value = value
+
+    def execute(self, input_grid: np.ndarray) -> np.ndarray:
+        output_grid = np.array([[self.value]], dtype=int)
+        return output_grid
+
+    @classmethod
+    def describe(cls) -> str:
+        return "Create a 1x1 grid with a specific constant value."
+    
+class CompareGridEquality(AbstractTransformationCommand):
+    """
+    Compares two inputs for equality as grids.
+    Inputs can be commands (producing grids).
+    Returns a 1x1 grid containing 1 if the grids are equal, otherwise returns 0.
+    """
+    synthesis_rules = {
+        "type": "combinator",
+        "requires_inner": True,
+        "parameter_ranges": {}
+    }
+
+    def __init__(self, command1: AbstractTransformationCommand,
+                 command2: AbstractTransformationCommand,
+                 logger: logging.Logger = None):
+        super().__init__(logger=logger)
+        self.command1 = command1
+        self.command2 = command2
+        self.logger.debug(f"Initialized CompareGridEquality with command1: {self.command1} and command2: {self.command2}")
+
+    def _resolve_grid_arg(self, arg: AbstractTransformationCommand, input_grid: np.ndarray) -> np.ndarray:
+        """
+        Helper method to execute a command and ensure it returns a grid.
+        """
+        if isinstance(arg, AbstractTransformationCommand):
+            result_grid = arg.execute(input_grid)
+            if not isinstance(result_grid, np.ndarray):
+                self.logger.error(f"Nested command '{str(arg)}' for grid comparison returned non-grid type: {type(result_grid)}.")
+                raise TypeError("Grid comparison argument must resolve to a NumPy array (grid).")
+            return result_grid
+        else:
+            self.logger.error(f"Argument '{arg}' provided to CompareGridEquality is not a command. Expected a command that produces a grid.")
+            raise TypeError("CompareGridEquality expects arguments that are commands producing grids.")
+
+
+    def execute(self, input_grid: np.ndarray) -> np.ndarray:
+        """
+        Compares the resolved grid outputs of command1 and command2 using np.array_equal.
+        Returns a 1x1 grid with 1 if equal, 0 if not equal.
+        """
+        self.logger.debug(f"Executing CompareGridEquality command.")
+        try:
+            grid_val1 = self._resolve_grid_arg(self.command1, input_grid)
+            grid_val2 = self._resolve_grid_arg(self.command2, input_grid)
+
+            are_equal = np.array_equal(grid_val1, grid_val2)
+            
+            self.logger.info(f"Comparison of {str(self.command1)} (resolved to grid of shape: {grid_val1.shape}) and {str(self.command2)} (resolved to grid of shape: {grid_val2.shape}) resulted in: {are_equal}")
+            return np.array([[1 if are_equal else 0]], dtype=int)
+        except Exception as e:
+            self.logger.error(f"Error executing CompareGridEquality command: {e}", exc_info=True)
+            raise
+
+    @classmethod
+    def describe(cls) -> str:
+        return "Compares two inputs for grid equality."
+    
+class IfElseCondition(AbstractTransformationCommand):
+    synthesis_rules = {
+        "type": "combinator",
+        "requires_inner": True,
+        "parameter_ranges": {}
+    }
+
+    # MODIFIED: Ensure parameter names match the 'nested_commands' keys from SYMBOL_RULES
+    def __init__(self, condition: Any,           # This will be the parsed condition command/literal
+                 true_branch: AbstractTransformationCommand, # This will be the parsed true_branch command
+                 false_branch: AbstractTransformationCommand, # This will be the parsed false_branch command
+                 logger: logging.Logger = None):
+        super().__init__(logger=logger)
+        self.condition = condition
+        self.true_branch = true_branch
+        self.false_branch = false_branch
+        self.logger.debug(f"Initialized IfElseCondition: condition={self.condition}, true_branch={self.true_branch}, false_branch={self.false_branch}")
+
+    def execute(self, input_grid: np.ndarray) -> np.ndarray:
+        self.logger.debug(f"Executing IfElseCondition.")
+        try:
+            # The condition should resolve to a scalar (0 or 1)
+            if isinstance(self.condition, AbstractTransformationCommand):
+                condition_result_grid = self.condition.execute(input_grid)
+                if condition_result_grid.shape != (1, 1):
+                    self.logger.error(f"IfElseCondition: condition command returned a grid of shape {condition_result_grid.shape}, expected (1,1) for scalar comparison.")
+                    raise ValueError("IfElseCondition condition must resolve to a single scalar value (1x1 grid).")
+                condition_value = condition_result_grid.item()
+            else: # If it's a literal integer (e.g., from ↱I)
+                condition_value = self.condition
+                if not isinstance(condition_value, int) or (condition_value != 0 and condition_value != 1):
+                     self.logger.warning(f"IfElseCondition: literal condition value is {condition_value}, expected 0 or 1.")
+
+            if condition_value == 1:
+                self.logger.debug(f"IfElseCondition: condition is TRUE. Executing true branch.")
+                return self.true_branch.execute(input_grid)
+            else:
+                self.logger.debug(f"IfElseCondition: condition is FALSE. Executing false branch.")
+                return self.false_branch.execute(input_grid)
+        except Exception as e:
+            self.logger.error(f"Error executing IfElseCondition: {e}", exc_info=True)
+            raise
+
+    @classmethod
+    def describe(cls) -> str:
+        return "Executes one of two commands based on a condition."

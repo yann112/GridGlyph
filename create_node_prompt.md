@@ -12,7 +12,7 @@ For each command in the provided list, you will perform the following steps:
     * **Symbol Rules Key:** The lowercase, snake_case string key for the `SYMBOL_RULES` dictionary (usually matches the Operation Map Key).
     * **Regex Pattern:** The regular expression string to match the DSL symbol and extract any parameters. Use Roman numerals (`[IVX]+`) for integer parameters and `∅` for zero if applicable, consistently following existing DSL patterns.
     * **Transform Params Lambda Code:** The Python `lambda` expression that processes regex matches into a dictionary of command parameters, using `roman_to_int` if Roman numerals are involved. If no parameters, use `lambda m: {}`.
-    * **Test Cases:** A list of at least **3** representative one-liner test cases. Each test case must be a Python tuple string: `("DSL_string", "np.array_input_as_string", "np.array_expected_output_as_string")`. Ensure `np.array(...)` is represented as a string that can be evaluated to a numpy array. Include diverse scenarios (e.g., different sizes, edge cases, zero/non-zero values).
+    * **Test Cases:** A list of at least **3** representative one-liner test cases. Each test case must be a Python tuple: `("DSL_string", np.array_input_as_python_object, np.array_expected_output_as_python_object)`. Include diverse scenarios (e.g., different sizes, edge cases, zero/non-zero values).
 
 2.  **Apply Changes to Files:** Integrate all inferred details into the following files, ensuring correct placement, indentation, and import management (add if missing, do not duplicate any imports):
     * `sources/core/dsl_nodes.py`: Add the inferred class definition.

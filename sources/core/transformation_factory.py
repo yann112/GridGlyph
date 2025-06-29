@@ -31,7 +31,13 @@ class TransformationFactory:
             ),
         'scale_grid': ScaleGrid,
         'extract_bounding_box': ExtractBoundingBox,
-    }
+        'flatten_grid': FlattenGrid ,
+        'if_else_condition': IfElseCondition,
+        'get_element': GetElement,
+        'compare_equality': CompareEquality,
+        'get_constant': GetConstant,
+        'compare_grid_equality': CompareGridEquality,
+}    
 
     @classmethod
     def get_class(cls, operation_name: str) -> Type[AbstractTransformationCommand]:

@@ -39,7 +39,7 @@ def test_symbolic_mapper_smoke(train_data_0):
     # Get symbolic variants
     symbolic_variants = mapper.generate_variants(
         train_data_0,
-        symbol_set_ids=["runic", "box_drawing"]
+        symbol_set_ids=["katakana_final_refined_1", "katakana_final_refined_2"]
         )
 
     formated_str = mapper.format_variants_list(symbolic_variants)
