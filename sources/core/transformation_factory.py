@@ -37,6 +37,7 @@ class TransformationFactory:
         'compare_equality': CompareEquality,
         'get_constant': GetConstant,
         'compare_grid_equality': CompareGridEquality,
+        'block_pattern_mask': BlockPatternMask,
 }    
 
     @classmethod

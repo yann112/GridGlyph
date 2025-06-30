@@ -63,11 +63,18 @@ TEST_CASES = [
     ("≗(Ⳁ,↔)", asymmetric_grid, np.array([[0]], dtype=int)),
     ("≡(⊡(I,I),↱∅)", np.array([[0,0],[0,0]], dtype=int), np.array([[1]], dtype=int)),
     ("≡(⊡(I,I),↱∅)", np.array([[1,1],[1,1]], dtype=int), np.array([[0]], dtype=int)),
-    ("¿(≡(↱I,↱I),Ⳁ,↔)", common_input_grid, common_input_grid),
-    ("¿(≡(↱I,↱II),Ⳁ,↔)", common_input_grid, np.fliplr(common_input_grid)),
-    ("¿(≡(⊡(I,I),↱I),Ⳁ,↔)", common_input_grid, common_input_grid),
-    ("¿(≡(⊡(I,I),↱∅),Ⳁ,↔)", common_input_grid, np.fliplr(common_input_grid)),
-]
+    ("⍰(≡(↱I,↱I),Ⳁ,↔)", common_input_grid, common_input_grid),
+    ("⍰(≡(↱I,↱II),Ⳁ,↔)", common_input_grid, np.fliplr(common_input_grid)),
+    ("⍰(≡(⊡(I,I),↱I),Ⳁ,↔)", common_input_grid, common_input_grid),
+    ("⍰(≡(⊡(I,I),↱∅),Ⳁ,↔)", common_input_grid, np.fliplr(common_input_grid)),
+    ("⟹(⮝(I,I), ⟹(↔, ⬒(II)))", np.array([[1, 2], [3, 4]], dtype=int), np.tile(np.array([[1, 2], [4, 3]], dtype=int), (2, 1))),
+    ("▦(III,III,\"∅∅I;∅II;I∅∅\")", common_input_grid, np.block([[np.full((3, 3), False, dtype=bool), np.full((3, 3), False, dtype=bool), np.full((3, 3), True, dtype=bool)], [np.full((3, 3), False, dtype=bool), np.full((3, 3), True, dtype=bool), np.full((3, 3), True, dtype=bool)], [np.full((3, 3), True, dtype=bool), np.full((3, 3), False, dtype=bool), np.full((3, 3), False, dtype=bool)]])),
+    ("⧎(⊕(IX,IX,VII), ▦(III,III,\"I∅I;∅I∅;I∅I\"), ⊕(IX,IX,∅))", np.array([[0]], dtype=int), np.array([[7,7,7,0,0,0,7,7,7],[7,7,7,0,0,0,7,7,7],[7,7,7,0,0,0,7,7,7],[0,0,0,7,7,7,0,0,0],[0,0,0,7,7,7,0,0,0],[0,0,0,7,7,7,0,0,0],[7,7,7,0,0,0,7,7,7],[7,7,7,0,0,0,7,7,7],[7,7,7,0,0,0,7,7,7]], dtype=int)),
+    ("⊕(IV,IV,∅)", np.zeros((4,4), dtype=int), np.array([[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]], dtype=int)),
+    ("⟹(◨(II), ⬒(II))", np.array([[0, 1], [1, 0]], dtype=int), np.array([[0,1,0,1],[1,0,1,0],[0,1,0,1],[1,0,1,0]], dtype=int)),
+    ("⧎(⟹(◨(II), ⬒(II)), ⤨(II), ⊕(IV,IV,∅))", np.array([[0, 1], [1, 0]], dtype=int), np.array([[0,0,0,1],[0,0,1,0],[0,1,0,0],[1,0,0,0]], dtype=int)),    
+    
+    ]
 
 
 

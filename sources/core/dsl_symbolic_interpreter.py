@@ -104,18 +104,7 @@ SYMBOL_RULES = {
             "swap_type": "rows"
         }
     },
-    "repeat_grid": { # Generic RepeatGrid
-        "pattern": r"^◨\((?P<inner_command_str>.+?)\s*,\s*(?P<vertical_repeats>[IVX]+)\s*,\s*(?P<horizontal_repeats>[IVX]+)\)$",
-        "transform_params": lambda m: {
-            "inner_command_str": m["inner_command_str"],
-            "vertical_repeats": roman_to_int(m["vertical_repeats"]),
-            "horizontal_repeats": roman_to_int(m["horizontal_repeats"])
-        },
-        "nested_commands": {
-            "inner_command": "inner_command_str"
-        }
-    },
-    "repeat_grid_horizontal_shortcut": {
+    "repeat_grid_horizontal": {
         "pattern": r"^◨\((?P<count>[IVX]+)\)$",
         "transform_params": lambda m: {
             "inner_command_str": "Ⳁ", # Injected Identity command string
@@ -127,7 +116,7 @@ SYMBOL_RULES = {
         },
         "target_op_name": "repeat_grid" # This rule maps to the 'repeat_grid' factory operation
     },
-    "repeat_grid_vertical_shortcut": {
+    "repeat_grid_vertical": {
         "pattern": r"^⬒\((?P<count>[IVX]+)\)$",
         "transform_params": lambda m: {
             "inner_command_str": "Ⳁ", # Injected Identity command string
@@ -165,17 +154,6 @@ SYMBOL_RULES = {
     "extract_bounding_box": {"sigil": "⧈"},
     "flatten_grid": {"sigil": "⧀"},
 
-    "compare_equality": {
-        "pattern": r"^==\((?P<command1_str>.+?)\s*,\s*(?P<command2_str>.+)\)$",
-        "transform_params": lambda m: {
-            "command1_str": m["command1_str"],
-            "command2_str": m["command2_str"]
-        },
-        "nested_commands": {
-            "command1": "command1_str",
-            "command2": "command2_str"
-        }
-    },
     "alternate": {
         "pattern": r"^⇌\((?P<first_command_str>.+?)\s*,\s*(?P<second_command_str>.+)\)$",
         "transform_params": lambda m: {
@@ -192,16 +170,6 @@ SYMBOL_RULES = {
         "transform_params": lambda m: {
             "inner_command_str": m["inner_command_str"],
             "condition_func": eval(m["condition_func_literal"], _SAFE_EVAL_GLOBALS, _SAFE_EVAL_LOCALS)
-        },
-        "nested_commands": {
-            "inner_command": "inner_command_str"
-        }
-    },
-    "mask_combinator": {
-        "pattern": r"^M\((?P<inner_command_str>.+?)\s*,\s*(?P<mask_func_literal>.+)\)$",
-        "transform_params": lambda m: {
-            "inner_command_str": m["inner_command_str"],
-            "mask_func": eval(m["mask_func_literal"], _SAFE_EVAL_GLOBALS, _SAFE_EVAL_LOCALS)
         },
         "nested_commands": {
             "inner_command": "inner_command_str"
@@ -242,7 +210,7 @@ SYMBOL_RULES = {
         }
     },
     "if_else_condition": {
-        "pattern": r"^¿\((?P<all_commands_str>.+)\)$",
+        "pattern": r"^⍰\((?P<all_commands_str>.+)\)$",
         "transform_params": lambda m: {
             "condition_str": _split_balanced_args(m["all_commands_str"], 3)[0],
             "true_branch_str": _split_balanced_args(m["all_commands_str"], 3)[1],
@@ -253,6 +221,31 @@ SYMBOL_RULES = {
             "true_branch": "true_branch_str",
             "false_branch": "false_branch_str"
         }
+    },
+    'block_pattern_mask': {
+        'pattern': r'^▦\((?P<block_rows>[IVX]+),\s*(?P<block_cols>[IVX]+),\s*"(?P<pattern_str>[I∅;]+)"\)$',
+        'transform_params': lambda m: {
+            "block_rows": roman_to_int(m["block_rows"]),
+            "block_cols": roman_to_int(m["block_cols"]),
+            "pattern_matrix": np.array([
+                [True if char == 'I' else False for char in block_row_str]
+                for block_row_str in m["pattern_str"].split(';')
+            ], dtype=bool)
+        }
+    },
+    "mask_combinator": {
+        "pattern": r"^⧎\((?P<inner_command_str>.+?)\s*,\s*(?P<mask_command_str>.+?)\s*,\s*(?P<false_value_command_str>.+?)\)$", # <--- Pattern now accepts 3 arguments
+        "transform_params": lambda m: {
+            "inner_command_str": m["inner_command_str"],
+            "mask_command_str": m["mask_command_str"],
+            "false_value_command_str": m["false_value_command_str"] 
+        },
+        "nested_commands": {
+            "inner_command": "inner_command_str",
+            "mask_command": "mask_command_str",
+            "false_value_command": "false_value_command_str"
+        },
+        "target_op_name": "mask_combinator" 
     },
 }
 

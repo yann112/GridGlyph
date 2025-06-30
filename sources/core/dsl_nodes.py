@@ -367,47 +367,52 @@ class ConditionalTransform(AbstractTransformationCommand):
 class MaskCombinator(AbstractTransformationCommand):
     synthesis_rules = {
         "type": "combinator",
+        "arity": 3, # <--- IMPORTANT CHANGE: Now takes three arguments
         "requires_inner": True,
-        "parameter_ranges": {
-            "mask_func": "lambda grid: np.ones_like(grid, dtype=bool)"
-        }
+        "parameter_ranges": {}
     }
 
-    def __init__(self, inner_command: AbstractTransformationCommand, mask_func, logger: logging.Logger = None):
+    def __init__(self, 
+                 inner_command: AbstractTransformationCommand, 
+                 mask_command: AbstractTransformationCommand, 
+                 false_value_command: AbstractTransformationCommand, # <--- NEW PARAMETER
+                 logger: logging.Logger = None):
         super().__init__(logger)
         self.inner_command = inner_command
-        self.mask_func = mask_func
-
+        self.mask_command = mask_command 
+        self.false_value_command = false_value_command # <--- NEW: Store the command
+        
     def execute(self, input_grid: np.ndarray) -> np.ndarray:
-        output_grid = input_grid.copy()
-
-        try:
-            mask = self.mask_func(input_grid)
-        except Exception as e:
-            self.logger.error(f"Error evaluating mask function: {e}")
-            raise
-
+        self.logger.debug(f"Executing MaskCombinator on {input_grid.shape}")
+        
+        # 1. Get the 'true_value' grid
         transformed_grid = self.inner_command.execute(input_grid)
-        output_grid[mask] = transformed_grid[mask]
-        return output_grid
+        
+        # 2. Get the 'mask' grid
+        mask = self.mask_command.execute(input_grid) 
+        
+        # 3. Get the 'false_value' grid <--- NEW: Execute the third command
+        false_value_grid = self.false_value_command.execute(input_grid)
+
+        # Ensure all three grids have matching shapes
+        if not (mask.shape == transformed_grid.shape == false_value_grid.shape):
+            self.logger.warning(f"Shape mismatch: Mask {mask.shape}, Transformed {transformed_grid.shape}, False Value {false_value_grid.shape}. All must match for np.where.")
+            raise ValueError(f"Shape mismatch in MaskCombinator: Mask {mask.shape}, Transformed {transformed_grid.shape}, False Value {false_value_grid.shape}. All must match.")
+            
+        # Perform the masking using the generic false_value_grid
+        result = np.where(mask, transformed_grid, false_value_grid) 
+        return result
 
     @classmethod
     def describe(cls) -> str:
         return """
-            Applies a transformation to specific elements of the grid based on a boolean mask.
-            
-            Use this to selectively apply operations like ReverseRow or FlipGridHorizontally to certain rows/columns.
+            Applies a transformation to an input grid and then masks the result,
+            allowing for a generic false_value grid.
             
             Parameters:
-            - inner_command: The transformation command to apply to selected elements.
-            - mask_func: A function that takes a grid and returns a boolean mask.
-
-            Example:
-            Input: [[1, 2, 3],
-                    [4, 5, 6]]
-            Command: MaskCombinator(ReverseRow(), lambda grid: np.array([[False, True, False], [True, False, True]]))
-            Output: [[1, 2, 3],
-                    [6, 5, 4]]
+            - inner_command: The command to apply to the input grid (provides the 'true_value' grid).
+            - mask_command: A command that produces a boolean mask (grid) of the same shape.
+            - false_value_command: A command that produces the grid to use where the mask is 0 (false).
         """
  
 class ShiftRowOrColumn:
@@ -862,3 +867,76 @@ class IfElseCondition(AbstractTransformationCommand):
     @classmethod
     def describe(cls) -> str:
         return "Executes one of two commands based on a condition."
+    
+
+class BlockPatternMask(AbstractTransformationCommand):
+    """
+    Generates a boolean mask grid based on a specified pattern of True/False blocks.
+    The pattern is expanded into a full mask where each 'block' in the pattern
+    corresponds to a fixed pixel size (e.g., 3x3).
+    """
+    synthesis_rules = {
+        "type": "atomic", # It generates a mask, doesn't transform the input grid directly
+        "requires_inner": False,
+        "parameter_ranges": {
+            "block_rows": (1, 30), # Number of block rows in the pattern
+            "block_cols": (1, 30)  # Number of block columns in the pattern
+        }
+    }
+
+    # Define the pixel size of each block in the mask.
+    # Based on the puzzle, each logical block (True/False in pattern) is 3x3 pixels.
+    BLOCK_PIXEL_SIZE = 3 
+
+    def __init__(self, block_rows: int, block_cols: int, pattern_matrix: np.ndarray, logger: logging.Logger = None):
+        super().__init__(logger)
+        self.block_rows = block_rows
+        self.block_cols = block_cols
+        self.pattern_matrix = pattern_matrix # This is already a boolean NumPy array from parsing
+
+        # Basic validation
+        if self.pattern_matrix.shape != (self.block_rows, self.block_cols):
+            self.logger.error(f"BlockPatternMask: pattern_matrix shape {self.pattern_matrix.shape} does not match declared block_rows {self.block_rows} and block_cols {self.block_cols}.")
+            raise ValueError("Pattern matrix dimensions must match block_rows and block_cols.")
+        
+        self.logger.debug(f"Initialized BlockPatternMask: {self.block_rows}x{self.block_cols} blocks with pattern:\n{self.pattern_matrix}")
+
+    def execute(self, input_grid: np.ndarray) -> np.ndarray:
+        """
+        Generates the full boolean mask grid.
+        The input_grid is only used to infer the final output shape if needed,
+        but the mask is primarily generated from its own parameters.
+        """
+        self.logger.debug("Executing BlockPatternMask.")
+        
+        # Calculate the total pixel dimensions of the mask
+        total_rows = self.block_rows * self.BLOCK_PIXEL_SIZE
+        total_cols = self.block_cols * self.BLOCK_PIXEL_SIZE
+
+        # Create an empty mask of the final size, filled with False
+        full_mask = np.full((total_rows, total_cols), False, dtype=bool)
+
+        # Populate the full mask based on the pattern_matrix
+        for r_block in range(self.block_rows):
+            for c_block in range(self.block_cols):
+                if self.pattern_matrix[r_block, c_block]:
+                    # If the pattern block is True, fill the corresponding pixel area with True
+                    start_row = r_block * self.BLOCK_PIXEL_SIZE
+                    end_row = start_row + self.BLOCK_PIXEL_SIZE
+                    start_col = c_block * self.BLOCK_PIXEL_SIZE
+                    end_col = start_col + self.BLOCK_PIXEL_SIZE
+                    full_mask[start_row:end_row, start_col:end_col] = True
+        
+        self.logger.debug(f"BlockPatternMask generated mask of shape: {full_mask.shape}")
+        return full_mask
+
+    @classmethod
+    def describe(cls) -> str:
+        return """
+            Generates a boolean mask grid based on a specified pattern of True ('I') and False ('∅') blocks.
+            Each 'block' in the pattern is expanded to a fixed pixel size (e.g., 3x3 pixels).
+            Parameters:
+            - block_rows: The number of rows in the block pattern.
+            - block_cols: The number of columns in the block pattern.
+            - pattern_str: A string representing the 2D pattern (e.g., "I∅I;∅I∅").
+        """
