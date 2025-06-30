@@ -233,20 +233,23 @@ SYMBOL_RULES = {
             ], dtype=bool)
         }
     },
-    "mask_combinator": {
-        "pattern": r"^⧎\((?P<inner_command_str>.+?)\s*,\s*(?P<mask_command_str>.+?)\s*,\s*(?P<false_value_command_str>.+?)\)$", # <--- Pattern now accepts 3 arguments
-        "transform_params": lambda m: {
-            "inner_command_str": m["inner_command_str"],
-            "mask_command_str": m["mask_command_str"],
-            "false_value_command_str": m["false_value_command_str"] 
-        },
-        "nested_commands": {
-            "inner_command": "inner_command_str",
-            "mask_command": "mask_command_str",
-            "false_value_command": "false_value_command_str"
-        },
-        "target_op_name": "mask_combinator" 
+"mask_combinator": {
+    "pattern": r"^⧎\((?P<all_commands_str>.+)\)$",
+    "transform_params": lambda m: (
+        parts := _split_balanced_args(m["all_commands_str"], num_args=3),
+        {
+            "inner_command_str": parts[0],
+            "mask_command_str": parts[1],
+            "false_value_command_str": parts[2]
+        }
+    )[1],
+    "nested_commands": {
+        "inner_command": "inner_command_str",
+        "mask_command": "mask_command_str",
+        "false_value_command": "false_value_command_str"
     },
+    "target_op_name": "mask_combinator"
+}
 }
 
 class SymbolicRuleParser:
