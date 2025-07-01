@@ -2,8 +2,7 @@
 
 import pytest
 import numpy as np
-from core.dsl_symbolic_interpreter import SymbolicRuleParser, roman_to_int
-from pathlib import Path
+from core.dsl_symbolic_interpreter import SymbolicRuleParser
 
 TEST_CASES = [
     ("Ⳁ", np.array([[1, 0], [0, 1]], dtype=int), np.array([[1, 0], [0, 1]], dtype=int)),
@@ -35,6 +34,28 @@ TEST_CASES = [
     ("⧈", np.array([[0, 0, 0, 0, 0], [0, 1, 1, 0, 0], [0, 1, 0, 0, 0], [0, 0, 0, 0, 0]], dtype=int), np.array([[1, 1], [1, 0]], dtype=int)),
     ("⧈", np.array([[0, 0], [0, 0]], dtype=int), np.array([[0]], dtype=int)),
     ("⧈", np.array([[1, 1, 0], [1, 0, 0], [0, 0, 0]], dtype=int), np.array([[1, 1], [1, 0]], dtype=int)),
+    ("↻", np.array([[1, 2], [3, 4]], dtype=int), np.array([[3, 1], [4, 2]], dtype=int)),
+    ("↻", np.array([[1, 2, 3], [4, 5, 6]], dtype=int), np.array([[4, 1], [5, 2], [6, 3]], dtype=int)),
+    ("↻", np.array([[1]], dtype=int), np.array([[1]], dtype=int)),
+    ("⤫", np.array([[1, 2], [3, 4]], dtype=int), np.array([[1, 3], [2, 4]], dtype=int)),
+    ("⤫", np.array([[1, 2, 3], [4, 5, 6]], dtype=int), np.array([[1, 4], [2, 5], [3, 6]], dtype=int)),
+    ("⤫", np.array([[1, 2]], dtype=int), np.array([[1], [2]], dtype=int)),
+    ("⤫", np.array([[1], [2]], dtype=int), np.array([[1, 2]], dtype=int)),
+    ("⤫", np.array([[7]], dtype=int), np.array([[7]], dtype=int)),
+    ("╳", np.array([[1, 2], [3, 4]], dtype=int), np.array([[4, 2], [3, 1]], dtype=int)),
+    ("╳", np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]], dtype=int), np.array([[9, 6, 3], [8, 5, 2], [7, 4, 1]], dtype=int)),
+    ("╳", np.array([[1, 2, 3], [4, 5, 6]], dtype=int), np.array([[6, 3], [5, 2], [4, 1]], dtype=int)),
+    ("╳", np.array([[1,2],[3,4],[5,6]], dtype=int), np.array([[6,4,2],[5,3,1]], dtype=int)),
+    ("╳", np.array([[1]], dtype=int), np.array([[1]], dtype=int)),
+    ("⊟", np.array([[0, 0, 0, 0, 0], [0, 1, 1, 0, 0], [0, 1, 0, 0, 0], [0, 0, 0, 0, 0]], dtype=int), np.array([[1, 1], [1, 0]], dtype=int)),
+    ("⊟", np.array([[0, 0], [0, 0]], dtype=int), np.array([[0]], dtype=int)),
+    ("⊟", np.array([[5, 0, 0], [0, 0, 0], [0, 0, 4]], dtype=int), np.array([[5, 0, 0], [0, 0, 0], [0, 0, 4]], dtype=int)),
+    ("⊟", np.array([[1, 1, 1], [1, 1, 1]], dtype=int), np.array([[1, 1, 1], [1, 1, 1]], dtype=int)),
+    ("⊟", np.array([[7]], dtype=int), np.array([[7]], dtype=int)),
+    ("⌗(I,V)", np.array([[1]], dtype=int), np.array([[5,5,5],[5,1,5],[5,5,5]], dtype=int)),
+    ("⌗(II,∅)", np.array([[1,2],[3,4]], dtype=int), np.array([[0,0,0,0,0,0],[0,0,0,0,0,0],[0,0,1,2,0,0],[0,0,3,4,0,0],[0,0,0,0,0,0],[0,0,0,0,0,0]], dtype=int)),
+    ("⌗(∅,V)", np.array([[1,2],[3,4]], dtype=int), np.array([[1,2],[3,4]], dtype=int)),
+    ("⌗(I,II)", np.array([[7,8],[9,1]], dtype=int), np.array([[2,2,2,2],[2,7,8,2],[2,9,1,2],[2,2,2,2]], dtype=int)),
 ]
 
 
@@ -50,23 +71,21 @@ def test_symbolic_rule(parser, rule, input_grid, expected_output):
     try:
         command = parser.parse_rule(rule)
 
-        # Convert input to ndarray
-        input_ndarray = np.array(input_grid)
+        input_ndarray = input_grid
 
-        # Execute the command
         result = command.execute(input_ndarray)
 
-        # Compare with expected output
-        assert result.shape == expected_output.shape, f"Shape mismatch: {result.shape} vs {expected_output.shape}"
+        expected_ndarray = expected_output
 
-        if np.issubdtype(expected_output.dtype, np.number):
-            assert np.array_equal(result, expected_output), f"Output mismatch for '{rule}'"
+        assert result.shape == expected_ndarray.shape, f"Shape mismatch for rule '{rule}': Result {result.shape} vs Expected {expected_ndarray.shape}"
+
+        if np.issubdtype(expected_ndarray.dtype, np.number):
+            assert np.array_equal(result, expected_ndarray), f"Output mismatch for rule '{rule}'"
         else:
-            # For object arrays (e.g., emoji or strings), compare element-wise
             assert all(
                 np.array_equal(r, e) if isinstance(r, np.ndarray) else r == e
-                for r, e in zip(result.flatten(), expected_output.flatten())
-            ), f"Output mismatch for '{rule}'"
+                for r, e in zip(result.flatten(), expected_ndarray.flatten())
+            ), f"Output mismatch for rule '{rule}'"
 
     except Exception as e:
         pytest.fail(f"Failed to parse or execute rule '{rule}': {str(e)}")

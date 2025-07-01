@@ -623,3 +623,88 @@ class ExtractBoundingBox(AbstractTransformationCommand):
             Extracts the smallest rectangular subgrid that encompasses all non-background (non-zero) pixels.
             If the input grid contains only background pixels (0s), it returns a 1x1 grid with 0.
         """
+
+class RotateGrid90Clockwise(AbstractTransformationCommand):
+    synthesis_rules = {
+        "type": "atomic",
+        "requires_inner": False,
+        "parameter_ranges": {}
+    }
+
+    def __init__(self, logger: logging.Logger = None):
+        super().__init__(logger)
+
+    def execute(self, input_grid: np.ndarray) -> np.ndarray:
+        self.logger.debug("Executing RotateGrid90Clockwise.")
+        # Rotate 90 degrees clockwise is equivalent to rotating counter-clockwise 3 times.
+        return np.rot90(input_grid, k=-1) # k=-1 for clockwise
+
+    @classmethod
+    def describe(cls) -> str:
+        return "Rotates the entire grid 90 degrees clockwise."
+
+class TransposeGrid(AbstractTransformationCommand):
+    synthesis_rules = {
+        "type": "atomic",
+        "requires_inner": False,
+        "parameter_ranges": {}
+    }
+
+    def __init__(self, logger: logging.Logger = None):
+        super().__init__(logger)
+
+    def execute(self, input_grid: np.ndarray) -> np.ndarray:
+        self.logger.debug("Executing TransposeGrid.")
+        return np.transpose(input_grid)
+
+    @classmethod
+    def describe(cls) -> str:
+        return "Flips the grid along its main diagonal (top-left to bottom-right), swapping rows and columns (transpose)."
+
+class FlipGridAntiDiagonal(AbstractTransformationCommand):
+    synthesis_rules = {
+        "type": "atomic",
+        "requires_inner": False,
+        "parameter_ranges": {}
+    }
+
+    def __init__(self, logger: logging.Logger = None):
+        super().__init__(logger)
+
+    def execute(self, input_grid: np.ndarray) -> np.ndarray:
+        self.logger.debug("Executing FlipGridAntiDiagonal.")
+        # Rotate 90 degrees counter-clockwise, then flip horizontally.
+        return np.fliplr(np.rot90(input_grid, k=1))
+
+    @classmethod
+    def describe(cls) -> str:
+        return "Flips the grid along its anti-diagonal (top-right to bottom-left)."
+
+class AddPadding(AbstractTransformationCommand):
+    synthesis_rules = {
+        "type": "atomic",
+        "requires_inner": False,
+        "parameter_ranges": {
+            "padding_amount": (0, 10),
+            "padding_color": (0, 9)
+        }
+    }
+
+    def __init__(self, padding_amount: int, padding_color: int, logger: logging.Logger = None):
+        super().__init__(logger)
+        if padding_amount < 0:
+            raise ValueError("Padding amount cannot be negative.")
+        self.padding_amount = padding_amount
+        self.padding_color = padding_color
+
+    def execute(self, input_grid: np.ndarray) -> np.ndarray:
+        self.logger.debug(f"Executing AddPadding: amount={self.padding_amount}, color={self.padding_color}")
+        if self.padding_amount == 0:
+            return input_grid.copy()
+
+        pad_width = ((self.padding_amount, self.padding_amount), (self.padding_amount, self.padding_amount))
+        return np.pad(input_grid, pad_width, mode='constant', constant_values=self.padding_color)
+
+    @classmethod
+    def describe(cls) -> str:
+        return "Adds a specified amount of padding (with a given color) evenly to all sides of the grid. Parameters: (padding_amount, padding_color)"

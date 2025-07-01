@@ -101,6 +101,14 @@ SYMBOL_RULES = {
         }
     },
     "extract_bounding_box": {"sigil": "⧈"},
+    "rotate_grid_90_clockwise": {"sigil": "↻"},
+    "transpose_grid": {"sigil": "⤫"},
+    "flip_grid_anti_diagonal": {"sigil": "╳"},
+    "crop_to_bounding_box": {"sigil": "⊟"},
+    "add_padding": {
+        "pattern": r"^⌗\((?P<amount>[IVX]+|∅),\s*(?P<color>[IVX]+|∅)\)$",
+        "transform_params": lambda m: {"padding_amount": roman_to_int(m["amount"]), "padding_color": roman_to_int(m["color"])}
+    },
 }
 
 

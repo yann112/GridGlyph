@@ -31,6 +31,11 @@ class TransformationFactory:
             ),
         'scale_grid': ScaleGrid,
         'extract_bounding_box': ExtractBoundingBox,
+        'rotate_grid_90_clockwise': RotateGrid90Clockwise,
+        'transpose_grid': TransposeGrid,
+        'flip_grid_anti_diagonal': FlipGridAntiDiagonal,
+        'crop_to_bounding_box': ExtractBoundingBox,
+        'add_padding': AddPadding,
     }
 
     @classmethod
