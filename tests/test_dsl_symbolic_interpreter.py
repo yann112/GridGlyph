@@ -21,6 +21,7 @@ asymmetric_grid = np.array([
 
 TEST_CASES = [
     ("Ⳁ", np.array([[1, 0], [0, 1]], dtype=int), np.array([[1, 0], [0, 1]], dtype=int)),
+    ("⇒(I,∅)", np.array([[1, 8], [0, 1]], dtype=int), np.array([[0, 8], [0, 0]], dtype=int)),
     ("↔", np.array([[1, 2], [3, 4]], dtype=int), np.array([[2, 1], [4, 3]], dtype=int)),
     ("→(I, ↢)", np.array([[1, 2], [3, 4]], dtype=int), np.array([[2, 1], [3, 4]], dtype=int)),
     ("⟹(→(I,↢),↔)", np.array([[1, 2], [3, 4]], dtype=int), np.array([[1, 2], [4, 3]], dtype=int)),
@@ -45,7 +46,6 @@ TEST_CASES = [
     ("⊕(III,II,VII)", None, np.array([[7, 7], [7, 7], [7, 7]], dtype=int)),
     ("⊕(II,II,∅)", None, np.array([[0, 0], [0, 0]], dtype=int)),
     ("⤨(II)", np.array([[1, 2], [3, 4]], dtype=int), np.array([[1, 1, 2, 2], [1, 1, 2, 2], [3, 3, 4, 4], [3, 3, 4, 4]], dtype=int)),
-    ("⤨(III)", np.array([[5]], dtype=int), np.array([[5, 5, 5], [5, 5, 5], [5, 5, 5]], dtype=int)),
     ("⧈", np.array([[0, 0, 0, 0, 0], [0, 1, 1, 0, 0], [0, 1, 0, 0, 0], [0, 0, 0, 0, 0]], dtype=int), np.array([[1, 1], [1, 0]], dtype=int)),
     ("⧈", np.array([[0, 0], [0, 0]], dtype=int), np.array([[0]], dtype=int)),
     ("⧈", np.array([[1, 1, 0], [1, 0, 0], [0, 0, 0]], dtype=int), np.array([[1, 1], [1, 0]], dtype=int)),

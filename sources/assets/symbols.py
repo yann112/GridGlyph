@@ -17,6 +17,11 @@ SYMBOL_SETS_JSON = {
             "description": "Clean Japanese syllabary; monospaced, structured, and ideal for pattern recognition.",
             "symbols": ["ツ", "レ", "ハ", "ア", "ヤ", "ユ", "ヨ", "キ", "ク", "ケ"]
         },
+            {
+            "id": "katakana_bk",
+            "description": "Clean Japanese syllabary; monospaced, structured, and ideal for pattern recognition.",
+            "symbols": ["∅", "レ", "ハ", "ア", "ヤ", "ユ", "ヨ", "キ", "ク", "ケ"]
+        },
         {
         "id": "katakana_final_refined_1",
         "description": "The premier set for abstract visual puzzles; characters chosen for unparalleled visual uniqueness and zero linguistic bias.",

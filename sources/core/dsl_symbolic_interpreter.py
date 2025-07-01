@@ -71,8 +71,12 @@ SYMBOL_RULES = {
         "transform_params": lambda m: {"value": int(m["value"])} # m is match object here
     },
     "map_numbers": {
-        "pattern": r"^⇒\((?P<old>\d+)→(?P<new>\d+)\)$",
-        "transform_params": lambda m: {"mapping": {int(m["old"]): int(m["new"])}} # m is match object here
+        "pattern": r"^⇒\((?P<old>[IVX∅]+),(?P<new>[IVX∅]+)\)$", # Changed \d+ to [IVX∅]+
+        "transform_params": lambda m: {
+            "mapping": {
+                roman_to_int(m["old"]): roman_to_int(m["new"]) # Use roman_to_int for both
+            }
+        }
     },
     "flip_h": {"sigil": "↔"},
     "flip_v": {"sigil": "↕"},
