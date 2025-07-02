@@ -65,6 +65,9 @@ _SAFE_EVAL_LOCALS = {}
 
 
 SYMBOL_RULES = {
+    "input_grid_reference": {
+        "sigil": "⌂", 
+    },
     "identity": {"sigil": "Ⳁ"},
     "get_constant": {
         "pattern": r"^↱(?P<value>\d+)$",
@@ -253,7 +256,19 @@ SYMBOL_RULES = {
         "false_value_command": "false_value_command_str"
     },
     "target_op_name": "mask_combinator"
-}
+},
+    'match_pattern': {
+        'pattern': r'^◫\((?P<grid_to_evaluate_str>.+),\s*\[(?P<cases_str>.*)\],\s*(?P<default_action_str>.+)\)$',
+        'transform_params': lambda m: {
+            "grid_to_evaluate_str": _split_balanced_args(m["all_commands_str"], 3)[0],
+            "cases_str": m["cases_str"], 
+            "default_action_str": _split_balanced_args(m["all_commands_str"], 3)[2]
+        },
+        'nested_commands': {
+            'grid_to_evaluate_cmd': 'grid_to_evaluate_str',
+            'default_action_cmd': 'default_action_str',
+        }
+    }
 }
 
 class SymbolicRuleParser:

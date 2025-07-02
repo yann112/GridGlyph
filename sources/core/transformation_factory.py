@@ -38,7 +38,9 @@ class TransformationFactory:
         'get_constant': GetConstant,
         'compare_grid_equality': CompareGridEquality,
         'block_pattern_mask': BlockPatternMask,
-}    
+        'match_pattern': MatchPattern,
+        'input_grid_reference': InputGridReference
+}       
 
     @classmethod
     def get_class(cls, operation_name: str) -> Type[AbstractTransformationCommand]:

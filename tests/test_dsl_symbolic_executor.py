@@ -1,9 +1,14 @@
-# test_symbolic_interpreter.py
-
 import pytest
 import numpy as np
+import logging
+from typing import Optional
+
 from core.dsl_symbolic_interpreter import SymbolicRuleParser, roman_to_int
-from pathlib import Path
+from core.dsl_symbolic_executor import DSLExecutor
+from core.dsl_nodes import InputGridReference
+
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 
 common_input_grid = np.array([
@@ -72,40 +77,57 @@ TEST_CASES = [
     ("⧎(⊕(IX,IX,VII), ▦(III,III,\"I∅I;∅I∅;I∅I\"), ⊕(IX,IX,∅))", np.array([[0]], dtype=int), np.array([[7,7,7,0,0,0,7,7,7],[7,7,7,0,0,0,7,7,7],[7,7,7,0,0,0,7,7,7],[0,0,0,7,7,7,0,0,0],[0,0,0,7,7,7,0,0,0],[0,0,0,7,7,7,0,0,0],[7,7,7,0,0,0,7,7,7],[7,7,7,0,0,0,7,7,7],[7,7,7,0,0,0,7,7,7]], dtype=int)),
     ("⊕(IV,IV,∅)", np.zeros((4,4), dtype=int), np.array([[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]], dtype=int)),
     ("⟹(◨(II), ⬒(II))", np.array([[0, 1], [1, 0]], dtype=int), np.array([[0,1,0,1],[1,0,1,0],[0,1,0,1],[1,0,1,0]], dtype=int)),
-    ("⧎(⟹(◨(II), ⬒(II)), ⤨(II), ⊕(IV,IV,∅))", np.array([[0, 1], [1, 0]], dtype=int), np.array([[0,0,0,1],[0,0,1,0],[0,1,0,0],[1,0,0,0]], dtype=int)),    
-    # ("◫(⎔(input_grid(),I), [(▦(3,3,\"010;111;010\"),→(8,2))],Ⳁ)", np.array([[0,0,0,0,0],[0,0,1,0,0],[0,1,1,1,0],[0,0,1,0,0],[8,8,8,8,8]], dtype=int), np.array([[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0],[2,2,2,2,2]], dtype=int)),
-    ]
-
-
+    ("⧎(⟹(◨(II), ⬒(II)), ⤨(II), ⊕(IV,IV,∅))", np.array([[0, 1], [1, 0]], dtype=int), np.array([[0,0,0,1],[0,0,1,0],[0,1,0,0],[1,0,0,0]], dtype=int)),
+]
 
 
 @pytest.fixture
-def parser():
+def parser() -> SymbolicRuleParser:
     return SymbolicRuleParser()
 
+@pytest.fixture
+def test_logger() -> logging.Logger:
+    return logging.getLogger(__name__)
 
-@pytest.mark.parametrize("rule, input_grid, expected_output", TEST_CASES)
-def test_symbolic_rule(parser, rule, input_grid, expected_output):
+
+@pytest.mark.parametrize("rule, initial_input_grid, expected_output_grid", TEST_CASES)
+def test_dsl_executor_execution(
+    parser: SymbolicRuleParser,
+    test_logger: logging.Logger,
+    rule: str,
+    initial_input_grid: Optional[np.ndarray],
+    expected_output_grid: np.ndarray
+):
     try:
-        command = parser.parse_rule(rule)
+        parsed_command_tree = parser.parse_rule(rule)
+        test_logger.info(f"Successfully parsed rule: '{rule}'")
 
-        # Convert input to ndarray
-        input_ndarray = np.array(input_grid)
-
-        # Execute the command
-        result = command.execute(input_ndarray)
-
-        # Compare with expected output
-        assert result.shape == expected_output.shape, f"Shape mismatch: {result.shape} vs {expected_output.shape}"
-
-        if np.issubdtype(expected_output.dtype, np.number):
-            assert np.array_equal(result, expected_output), f"Output mismatch for '{rule}'"
+        if initial_input_grid is None:
+            executor_input_grid = np.array([[0]], dtype=int)
         else:
-            # For object arrays (e.g., emoji or strings), compare element-wise
+            executor_input_grid = np.array(initial_input_grid, dtype=int)
+
+        executor = DSLExecutor(
+            root_command=parsed_command_tree,
+            initial_puzzle_input=executor_input_grid,
+            logger=test_logger
+        )
+        test_logger.info("Executor instantiated and initialized commands.")
+
+        result_grid = executor.execute_program()
+        test_logger.info(f"Execution complete for rule: '{rule}'")
+
+        assert result_grid.shape == expected_output_grid.shape, \
+            f"Shape mismatch for rule '{rule}': {result_grid.shape} vs {expected_output_grid.shape}"
+
+        if np.issubdtype(expected_output_grid.dtype, np.number):
+            assert np.array_equal(result_grid, expected_output_grid), \
+                f"Output mismatch for rule '{rule}'\nExpected:\n{expected_output_grid}\nGot:\n{result_grid}"
+        else:
             assert all(
                 np.array_equal(r, e) if isinstance(r, np.ndarray) else r == e
-                for r, e in zip(result.flatten(), expected_output.flatten())
-            ), f"Output mismatch for '{rule}'"
+                for r, e in zip(result_grid.flatten(), expected_output_grid.flatten())
+            ), f"Output mismatch for rule '{rule}'\nExpected:\n{expected_output_grid}\nGot:\n{result_grid}"
 
     except Exception as e:
-        pytest.fail(f"Failed to parse or execute rule '{rule}': {str(e)}")
+        pytest.fail(f"Test failed for rule '{rule}': {str(e)}")

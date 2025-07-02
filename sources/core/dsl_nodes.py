@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 import logging
 import numpy as np
-from typing import List, Optional, Dict, Any, Tuple, Union
+from typing import List, Optional, Dict, Any, Tuple, Union, Iterator
 from assets.symbols import ROM_VAL_MAP 
 
 class AbstractTransformationCommand(ABC):
@@ -27,6 +27,48 @@ class AbstractTransformationCommand(ABC):
         """Returns a human-readable description of the transformation"""
         return "Unknown transformation"
 
+    def get_children_commands(self) -> Iterator['AbstractTransformationCommand']:
+        """
+        Yields all direct AbstractTransformationCommand children of this command.
+        By default, a command is considered a 'leaf' node and has no children.
+        Composite commands (e.g., Sequence, ConditionalTransform) MUST override
+        this method to yield their actual child command instances.
+        """
+        yield from () # Default: yield nothing (an empty iterator)
+
+    def set_executor_context(self, executor: Any): # 'DSLExecutor' forward ref
+        """
+        Allows the Executor to inject itself (or a relevant context) into the command.
+        This is useful for commands needing access to shared state like variables or the logger.
+        The context is propagated to children via get_children_commands().
+        """
+        self._executor_context = executor
+        for child_cmd in self.get_children_commands():
+            if hasattr(child_cmd, 'set_executor_context'):
+                child_cmd.set_executor_context(executor)
+                
+
+class InputGridReference(AbstractTransformationCommand):
+    def __init__(self, logger: logging.Logger = None):
+        super().__init__(logger)
+        self._initial_puzzle_input: Optional[np.ndarray] = None
+
+    def set_initial_puzzle_input(self, initial_grid: np.ndarray):
+        if not isinstance(initial_grid, np.ndarray):
+            raise TypeError("Initial grid must be a NumPy array.")
+        self._initial_puzzle_input = initial_grid
+        self.logger.debug(f"InputGridReference received initial grid of shape {initial_grid.shape}")
+
+    def execute(self, current_grid: np.ndarray) -> np.ndarray:
+        if self._initial_puzzle_input is None:
+            raise ValueError(
+                "InputGridReference's initial puzzle input was not set! "
+                "Ensure the Executor initialized the command tree."
+            )
+        self.logger.debug(f"Executing InputGridReference: returning initial grid of shape {self._initial_puzzle_input.shape}")
+        return self._initial_puzzle_input.copy()
+    
+    
 class MapNumbers(AbstractTransformationCommand):
     synthesis_rules = {
         "type": "atomic",
@@ -415,7 +457,7 @@ class MaskCombinator(AbstractTransformationCommand):
             - false_value_command: A command that produces the grid to use where the mask is 0 (false).
         """
  
-class ShiftRowOrColumn:
+class ShiftRowOrColumn(AbstractTransformationCommand):
     synthesis_rules = {
             "type": "atomic",
             "parameter_ranges": {
@@ -940,3 +982,69 @@ class BlockPatternMask(AbstractTransformationCommand):
             - block_cols: The number of columns in the block pattern.
             - pattern_str: A string representing the 2D pattern (e.g., "I∅I;∅I∅").
         """
+        
+class MatchPattern(AbstractTransformationCommand):
+    synthesis_rules = {
+        "type": "combinator",
+        "requires_inner": False,
+        "parameter_ranges": {"grid_to_evaluate_cmd": None, "cases": [], "default_action_cmd": None}
+    }
+
+    def __init__(self, 
+                 grid_to_evaluate_cmd: AbstractTransformationCommand,
+                 cases: List[Tuple[np.ndarray, AbstractTransformationCommand]],
+                 default_action_cmd: AbstractTransformationCommand,
+                 logger: Optional[logging.Logger] = None):
+        super().__init__(logger)
+        self.grid_to_evaluate_cmd = grid_to_evaluate_cmd
+        self.cases = cases
+        self.default_action_cmd = default_action_cmd
+
+    def execute(self, input_grid: np.ndarray) -> np.ndarray:
+        grid_to_match = self.grid_to_evaluate_cmd.execute(input_grid)
+        
+        self.logger.debug(f"MatchPattern: Grid to evaluate (shape: {grid_to_match.shape}):\n{grid_to_match}")
+
+        for case_pattern, action_cmd in self.cases:
+            self.logger.debug(f"MatchPattern: Comparing with case pattern (shape: {case_pattern.shape}):\n{case_pattern}")
+            
+            if grid_to_match.shape == case_pattern.shape and np.array_equal(grid_to_match, case_pattern):
+                self.logger.info(f"MatchPattern: Pattern matched! Executing action: {action_cmd.__class__.__name__}")
+                return action_cmd.execute(input_grid)
+
+        self.logger.info(f"MatchPattern: No pattern matched. Executing default action: {self.default_action_cmd.__class__.__name__}")
+        return self.default_action_cmd.execute(input_grid)
+
+    @classmethod
+    def describe(cls) -> str:
+        return """
+        Performs conditional execution based on matching an extracted subgrid against predefined patterns.
+        It first evaluates a command to obtain a target grid. Then, it iterates through a list of cases,
+        each consisting of a specific pattern and an action to perform. If the target grid exactly matches
+        a pattern, the corresponding action is executed. If no pattern matches, a default action is executed.
+        """
+        
+    class InputGridReference(AbstractTransformationCommand):
+        def __init__(self, logger: logging.Logger = None):
+            super().__init__(logger)
+            self._initial_puzzle_input: Optional[np.ndarray] = None # Placeholder
+
+        def set_initial_puzzle_input(self, initial_grid: np.ndarray):
+            """Sets the actual initial puzzle input from the Executor."""
+            if not isinstance(initial_grid, np.ndarray):
+                raise TypeError("Initial grid must be a NumPy array.")
+            self._initial_puzzle_input = initial_grid
+
+        def execute(self, current_grid: np.ndarray) -> np.ndarray:
+            """
+            Returns the stored initial puzzle input grid.
+            The current_grid argument is ignored for this command.
+            """
+            if self._initial_puzzle_input is None:
+                raise ValueError(
+                    "InputGridReference's initial puzzle input was not set! "
+                    "Ensure the Executor initialized the command tree."
+                )
+            if self.logger:
+                self.logger.debug(f"Executing InputGridReference: returning initial grid of shape {self._initial_puzzle_input.shape}")
+            return self._initial_puzzle_input.copy() # Return a copy to prevent external modification
