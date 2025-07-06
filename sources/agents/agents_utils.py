@@ -181,21 +181,14 @@ class SymbolicGridMapper:
         Map a numeric grid into symbolic form using selected set.
         Returns the mapped grid and the value-to-symbol mapping used.
         """
-        unique_values = sorted(list(set(cell for row in grid for cell in row))) # Convert set to list for consistent order
-        
         value_to_symbol = {}
-        for idx, val in enumerate(unique_values):
-            if idx < len(symbols):
-                value_to_symbol[val] = symbols[idx]
+        for val in range(len(symbols)):
+            if val < len(symbols):
+                value_to_symbol[val] = symbols[val]
             else:
-                # Add symbol_set_id to the warning message for better context
-                self.logger.warning(f"Not enough symbols in '{symbol_set_id or 'unknown_set'}' for all unique values. Value {val} could not be mapped.")
-                # You might want a default mapping for unmapped values, e.g., value_to_symbol[val] = '?'
-                # For now, we'll just break, which means subsequent unique values won't be mapped if symbols run out.
-                break 
+                self.logger.warning(f"Symbol list too short for value {val}")
         
-        mapped_grid = [[value_to_symbol.get(cell, '?') for cell in row] for row in grid] # Use .get for safety
-        
+        mapped_grid = [[value_to_symbol.get(cell, '?') for cell in row] for row in grid]
         return mapped_grid, value_to_symbol
 
     def map_input_output_pair(
@@ -204,7 +197,6 @@ class SymbolicGridMapper:
         """Map a single input/output pair using the specified symbol set."""
         symbols = self._symbol_set_dict[symbol_set_id]["symbols"]
 
-        # Pass symbol_set_id to map_grid for better warning messages
         mapped_input, _ = self.map_grid(input_grid, symbols, symbol_set_id)
         mapped_output, _ = self.map_grid(output_grid, symbols, symbol_set_id)
 
@@ -224,7 +216,6 @@ class SymbolicGridMapper:
     ) -> Dict[str, Union[List[List[str]], Dict[int, str]]]:
         """Map a test input grid using the specified symbol set."""
         symbols = self._symbol_set_dict[symbol_set_id]["symbols"]
-        # Corrected: map_grid now returns two values, so unpack them
         mapped, mapping = self.map_grid(test_input, symbols, symbol_set_id)
 
         return {
@@ -246,7 +237,6 @@ class SymbolicGridMapper:
         Returns:
             List of variants, one per symbol set
         """
-        # Ensure symbol_sets is initialized
         if not hasattr(self, 'symbol_sets'):
             self.symbol_sets = {item["id"]: item for item in SYMBOL_SETS_JSON["grid_glyphs"]}
 
@@ -263,7 +253,6 @@ class SymbolicGridMapper:
                 "test_inputs": []
             }
 
-            # Map training examples
             if "train" in data:
                 for example in data["train"]:
                     mapped = self.map_input_output_pair(
@@ -276,7 +265,6 @@ class SymbolicGridMapper:
                         "output": mapped["output"],
                     })
 
-            # Map test inputs
             if "test" in data:
                 for test_example in data["test"]:
                     mapped = self.map_test_input(test_example["input"], sid)
@@ -307,12 +295,10 @@ class SymbolicGridMapper:
             Returns:
                 List of symbolic variant dictionaries
             """
-            # Step 1: Extract all training examples
             train_examples = puzzle_data.get("train", [])
             if not train_examples:
                 raise ValueError("No training examples found in puzzle_data")
 
-            # Step 2: Choose glyphset & generate variants
             available_sets = list(self._symbol_set_dict.keys())
             variants = []
             used_mappings = set()
@@ -329,15 +315,6 @@ class SymbolicGridMapper:
                 if shuffle_symbols:
                     random.shuffle(symbols)
                 
-                # This key needs to capture the actual mapping, not just the shuffled symbols
-                # We need to first determine the unique values in the grid to create the mapping key reliably.
-                
-                # For `generate_n_variants`, the `map_grid` will return the specific mapping for the unique values in the input grid.
-                # So, we need to apply map_grid to get the actual mapping for the first training example (or all of them)
-                # to form a consistent key for `used_mappings`.
-                
-                # To get a consistent mapping for the key, we need to determine all unique values across ALL grids first.
-                # This is more robust than relying on just one example.
                 all_grid_values = set()
                 for example in train_examples:
                     all_grid_values.update(cell for row in example["input"] for cell in row)
@@ -356,9 +333,7 @@ class SymbolicGridMapper:
                     else:
                         self.logger.warning(f"Not enough symbols in '{sid}' for all unique values ({len(sorted_unique_values)} unique values, {len(symbols)} symbols). Some values might not be mapped.")
                         break # Or assign a default symbol
-                
-                # Create a stable mapping key based on the generated value_to_symbol mapping
-                # This ensures that different shuffles of symbols that result in the same value-to-symbol mapping are considered duplicates
+
                 mapping_key_parts = []
                 for val in sorted_unique_values:
                     mapping_key_parts.append(f"{val}:{temp_value_to_symbol.get(val, '?')}") # Use .get for safety
@@ -368,7 +343,6 @@ class SymbolicGridMapper:
                 if not allow_repeats and mapping_key in used_mappings:
                     continue  # Skip duplicate mappings
 
-                # Step 4: Build symbolic version of all train examples
                 mapped_examples = []
                 for example in train_examples:
                     # Pass the pre-determined mapping to map_grid_with_mapping for consistency
@@ -380,15 +354,12 @@ class SymbolicGridMapper:
                         "output": mapped_output
                     })
 
-                # Step 5: Map test inputs
                 test_inputs = []
                 for test in puzzle_data.get("test", []):
-                    # Pass the pre-determined mapping to map_grid_with_mapping for consistency
                     test_inputs.append({
                         "input": self.map_grid_with_mapping(test["input"], temp_value_to_symbol)
                     })
 
-                # Step 6: Store variant
                 variants.append({
                     "symbol_set_id": sid,
                     "examples": mapped_examples,

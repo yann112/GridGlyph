@@ -45,6 +45,26 @@ def test_symbolic_mapper_smoke(train_data_0):
     formated_str = mapper.format_variants_list(symbolic_variants)
     assert type(formated_str) is str
 
+
+def test_symbolic_mapper_katana_bk(train_data_0):
+    """
+    Simple smoke test for MultiGridFeatureCollector.
+    
+    Checks basic structure of output without deep validation.
+    """
+    # Instantiate mapper
+    mapper = SymbolicGridMapper(
+    )
+
+    # Get symbolic variants
+    symbolic_variants = mapper.generate_variants(
+        train_data_0,
+        symbol_set_ids=["katakana_bk"]
+        )
+
+    formated_str = mapper.format_variants_list(symbolic_variants)
+    assert type(formated_str) is str
+    
 def test_symbolic_mapper_n_variants_single_inputs(train_data_0):
     """
     Simple smoke test for MultiGridFeatureCollector.

@@ -10,6 +10,8 @@ ROM_VAL_MAP = {
         'XXX': 30
     }
 
+INT_VAL_MAP = {v: k for k, v in ROM_VAL_MAP.items()}
+
 SYMBOL_SETS_JSON = {
     "grid_glyphs": [
         {

@@ -39,7 +39,8 @@ class TransformationFactory:
         'compare_grid_equality': CompareGridEquality,
         'block_pattern_mask': BlockPatternMask,
         'match_pattern': MatchPattern,
-        'input_grid_reference': InputGridReference
+        'input_grid_reference': InputGridReference,
+        'filter_grid_by_color':FilterGridByColor
 }       
 
     @classmethod

@@ -26,7 +26,7 @@
                 // "-k", "test_gridglyphs_analyzer_tool"
                 // "-k", "test_llm"
                 // "-k", "test_dsl_symbolic_interpreter"
-                "-k", "test_dsl_symbolic_executor"
+                // "-k", "test_dsl_symbolic_executor"
             ],
             "console": "integratedTerminal",
             "justMyCode": true

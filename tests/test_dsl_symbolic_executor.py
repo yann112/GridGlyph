@@ -27,6 +27,104 @@ tiny_grid_1x1_val1 = np.array([[1]], dtype=int)
 tiny_grid_1x1_val2 = np.array([[2]], dtype=int)
 
 TEST_CASES = [
+    ("Ⳁ", tiny_grid_1x1_val1, tiny_grid_1x1_val1),
+    ("Ⳁ", np.array([[0, 0], [0, 0]]), np.array([[0, 0], [0, 0]])),
+    ("Ⳁ", np.array([1, 2, 3]), np.array([1, 2, 3])),
+
+    ("⇒(II, I)", np.array([[1, 2, 3], [2, 0, 2]]), np.array([[1, 1, 3], [1, 0, 1]])),
+    ("⇒(∅, X)", np.array([[0, 1], [0, 0]]), np.array([[10, 1], [10, 10]])),
+    ("⇒(I, I)", np.array([[1, 2], [3, 1]]), np.array([[1, 2], [3, 1]])),
+
+    ("↔", tiny_grid_1x1_val1, tiny_grid_1x1_val1),
+    ("↔", np.array([[1, 2, 3]]), np.array([[3, 2, 1]])),
+    ("↔", np.array([[1], [2], [3]]), np.array([[1], [2], [3]])),
+
+    ("→(I, Ⳁ)", np.array([[1, 2], [3, 4]]), np.array([[1, 2], [3, 4]])),
+    ("→(II, Ⳁ)", np.array([[1, 2], [3, 4]]), np.array([[1, 2], [3, 4]])),
+    ("→(I, ⇒(I, ∅))", np.array([[1, 1], [1, 1]]), np.array([[0, 0], [1, 1]])),
+
+    ("⟹(↔, ↕)", np.array([[1, 2], [3, 4]]), np.array([[4, 3], [2, 1]])),
+    ("⟹(↢, ↢)", np.array([[1, 2, 3]]), np.array([[1, 2, 3]])),
+
+    ("⬒(I)", np.array([[1, 2]]), np.array([[1, 2]])),
+    ("⬒(III)", tiny_grid_1x1_val1, np.array([[1], [1], [1]])),
+
+    ("⇄(II,I)", np.array([[1, 2], [3, 4]]), np.array([[3, 4], [1, 2]])),
+    ("⇄(II,III)", np.array([[1, 2], [3, 4], [5, 6]]), np.array([[1, 2], [5, 6], [3, 4]])),
+
+    ("⮝(I,I)", np.array([[1, 2, 3, 4]]), np.array([[4, 1, 2, 3]])),
+    ("⮝(I,∅)", np.array([[1, 2, 3]]), np.array([[1, 2, 3]])),
+    ("⮝(V,I)", np.array([[1],[2],[3],[4],[5]]), np.array([[1],[2],[3],[4],[5]])),
+
+    ("↕", tiny_grid_1x1_val1, tiny_grid_1x1_val1),
+    ("↕", np.array([[1, 2]]), np.array([[1, 2]])),
+    ("↕", np.array([[1], [2], [3]]), np.array([[3], [2], [1]])),
+
+    ("⮞(I,I)", np.array([[1, 2], [3, 4]]), np.array([[3, 2], [1, 4]])),
+    ("⮞(I,∅)", np.array([[1, 2], [3, 4]]), np.array([[1, 2], [3, 4]])),
+    ("⮞(III,II)", np.array([[1,2,3,4],[5,6,7,8]]), np.array([[1,2,3,4],[5,6,7,8]])),
+
+    ("◨(I)", np.array([[1], [2]]), np.array([[1], [2]])),
+    ("◨(IV)", tiny_grid_1x1_val1, np.array([[1, 1, 1, 1]])),
+
+    ("⊕(I,V,I)", None, np.array([[1, 1, 1, 1, 1]])),
+    ("⊕(V,I,II)", None, np.array([[2], [2], [2], [2], [2]])),
+
+    ("⤨(I)", np.array([[1, 2], [3, 4]]), np.array([[1, 2], [3, 4]])),
+    ("⤨(IV)", np.array([[0, 1]]), np.array([[0,0,0,0,1,1,1,1],[0,0,0,0,1,1,1,1],[0,0,0,0,1,1,1,1],[0,0,0,0,1,1,1,1]])),
+
+    ("⧈", np.array([[1, 1, 1]]), np.array([[1, 1, 1]])),
+    ("⧈", np.array([[0, 0, 0], [0, 5, 0], [0, 0, 0]]), np.array([[5]])),
+    ("⧈", np.array([[0, 0], [1, 0]]), np.array([[1]])),
+
+    ("⧀", tiny_grid_1x1_val1, np.array([1])),
+    ("⧀", np.array([[]]).reshape(0,0), np.array([]).reshape(0,)),
+
+    ("⊡(I,I)", tiny_grid_1x1_val1, np.array([[1]])),
+    ("⊡(I,III)", np.array([[1, 2, 3, 4], [5, 6, 7, 8]]), np.array([[3]])),
+    ("⊡(II,I)", np.array([[1, 2], [3, 4]]), np.array([[3]])),
+
+    ("↱I", None, np.array([[1]])),
+    ("↱∅", None, np.array([[0]])),
+    ("↱X", None, np.array([[10]])),
+
+    ("≡(⊡(II,II), ⊡(I,I))", np.array([[1, 2], [1, 1]]), np.array([[1]])),
+    ("≡(⊡(II,II), ⊡(I,I))", np.array([[1, 2], [3, 4]]), np.array([[0]])),
+    ("≡(↱I, ⊡(I,I))", tiny_grid_1x1_val1, np.array([[1]])),
+
+    ("≗(↔, ↢)", np.array([[1, 2], [3, 4]]), np.array([[1]])),
+    ("≗(⬒(II), ◨(II))", tiny_grid_1x1_val1, np.array([[0]])),
+    ("≗(⬒(II), ⬒(II))", np.array([[1, 2]]), np.array([[1]])),
+
+    ("⍰(≡(↱V,↱V), ↔, ↕)", np.array([[1, 2], [3, 4]]), np.array([[2, 1], [4, 3]])),
+    ("⍰(≡(↱V,↱X), ↔, ↕)", np.array([[1, 2], [3, 4]]), np.array([[3, 4], [1, 2]])),
+    ("⍰(≡(↱∅, ↱I), Ⳁ, ⤨(II))", tiny_grid_1x1_val1, np.array([[1, 1], [1, 1]])),
+
+    ("▦(I,I,I)", None, np.array([[1]])),
+    ("▦(I,I,∅)", None, np.array([[0]])),
+    ("▦(I,II,I∅)", None, np.array([[1, 0]])),
+    ("▦(II,I,I;I)", None, np.array([[1],[1]])),
+    ("▦(II,II,I∅;∅I)", None, np.array([[1,0],[0,1]])),
+    ("▦(II,III,I∅I;∅I∅)", None, np.array([[1,0,1],[0,1,0]])),
+
+    ("⧎(↱I, ↱I, ↱∅)", None, np.array([[1]])),
+    ("⧎(⊕(II,II,V), ▦(II,II,I∅;∅I), ⊕(II,II,I))", None, np.array([[5, 1], [1, 5]])),
+    ("⧎(Ⳁ, ⊕(II,II,∅), ⊕(II,II,X))", np.array([[1, 2], [3, 4]]), np.array([[10, 10], [10, 10]])),
+
+    ("¿(↕, ≡(⊡(I,I), ↱V))", np.array([[1,2],[5,6]]), np.array([[1,2],[5,6]])),
+    ("¿(↕, ≡(⊡(II,I), ↱V))", np.array([[1,2],[5,6]]), np.array([[5,6],[1,2]])),
+    ("¿(⤨(II), ≗(Ⳁ,Ⳁ))", tiny_grid_1x1_val1, np.array([[1,1],[1,1]])),
+
+    ("◫(⌂, [(≡(↱I, ↱I), ↔)], Ⳁ)", np.array([[1,2]]), np.array([[1,2]])), 
+    ("◫(⌂, [(≗(⊕(I,I,I), ↱I), ↔)], Ⳁ)", np.array([[1,2]]), np.array([[1,2]])), 
+    ("◫(⌂, [(≡(⊡(I,I), ↱II), ↔), (≡(⊡(I,I), ↱I), ↕)], Ⳁ)", np.array([[1,2],[3,4]]), np.array([[1,2],[3,4]])),
+
+    ("◫(⌂, [(⧀(⊕(I,I,∅)), ↔)], Ⳁ)", np.array([[1,2]]), np.array([[1,2]])), 
+
+    ("◎(III)", np.array([[1,2,3],[3,2,1]]), np.array([[0,0,3],[3,0,0]])),
+    ("◎(I)", np.array([[1,1],[1,1]]), np.array([[1,1],[1,1]])),
+    ("◎(V)", np.array([[1,2],[3,4]]), np.array([[0,0],[0,0]])),
+    
     ("Ⳁ", np.array([[1, 0], [0, 1]], dtype=int), np.array([[1, 0], [0, 1]], dtype=int)),
     ("⇒(I,∅)", np.array([[1, 8], [0, 1]], dtype=int), np.array([[0, 8], [0, 0]], dtype=int)),
     ("↔", np.array([[1, 2], [3, 4]], dtype=int), np.array([[2, 1], [4, 3]], dtype=int)),
@@ -75,8 +173,7 @@ TEST_CASES = [
     ("⍰(≡(⊡(I,I),↱I),Ⳁ,↔)", common_input_grid, common_input_grid),
     ("⍰(≡(⊡(I,I),↱∅),Ⳁ,↔)", common_input_grid, np.fliplr(common_input_grid)),
     ("⟹(⮝(I,I), ⟹(↔, ⬒(II)))", np.array([[1, 2], [3, 4]], dtype=int), np.tile(np.array([[1, 2], [4, 3]], dtype=int), (2, 1))),
-    ("▦(III,III,\"∅∅I;∅II;I∅∅\")", common_input_grid, np.block([[np.full((3, 3), False, dtype=bool), np.full((3, 3), False, dtype=bool), np.full((3, 3), True, dtype=bool)], [np.full((3, 3), False, dtype=bool), np.full((3, 3), True, dtype=bool), np.full((3, 3), True, dtype=bool)], [np.full((3, 3), True, dtype=bool), np.full((3, 3), False, dtype=bool), np.full((3, 3), False, dtype=bool)]])),
-    ("⧎(⊕(IX,IX,VII), ▦(III,III,\"I∅I;∅I∅;I∅I\"), ⊕(IX,IX,∅))", np.array([[0]], dtype=int), np.array([[7,7,7,0,0,0,7,7,7],[7,7,7,0,0,0,7,7,7],[7,7,7,0,0,0,7,7,7],[0,0,0,7,7,7,0,0,0],[0,0,0,7,7,7,0,0,0],[0,0,0,7,7,7,0,0,0],[7,7,7,0,0,0,7,7,7],[7,7,7,0,0,0,7,7,7],[7,7,7,0,0,0,7,7,7]], dtype=int)),
+    ("▦(III,III,∅∅I;∅II;I∅∅)", None, np.array([[0, 0, 1], [0, 1, 1], [1, 0, 0]], dtype=int)),
     ("⊕(IV,IV,∅)", np.zeros((4,4), dtype=int), np.array([[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]], dtype=int)),
     ("⟹(◨(II), ⬒(II))", np.array([[0, 1], [1, 0]], dtype=int), np.array([[0,1,0,1],[1,0,1,0],[0,1,0,1],[1,0,1,0]], dtype=int)),
     ("⧎(⟹(◨(II), ⬒(II)), ⤨(II), ⊕(IV,IV,∅))", np.array([[0, 1], [1, 0]], dtype=int), np.array([[0,0,0,1],[0,0,1,0],[0,1,0,0],[1,0,0,0]], dtype=int)),
@@ -90,7 +187,7 @@ TEST_CASES = [
     ("↢(⌂)", np.array([[1, 2, 3], [4, 5, 6]], dtype=int), np.array([[3, 2, 1], [6, 5, 4]], dtype=int)),
     ("↢(⌂)", np.array([[1, 2]], dtype=int), np.array([[2, 1]], dtype=int)),
     ("⧈(⌂)", np.array([[0, 0, 0, 0], [0, 1, 1, 0], [0, 1, 0, 0], [0, 0, 0, 0]], dtype=int), np.array([[1, 1], [1, 0]], dtype=int)),
-    ("⧈(⌂)", np.array([[0, 0], [0, 0]], dtype=int), np.array([[0]], dtype=int)), # Edge case: all background
+    ("⧈(⌂)", np.array([[0, 0], [0, 0]], dtype=int), np.array([[0]], dtype=int)),
     ("⧀(⌂)", np.array([[1, 2], [3, 4]], dtype=int), np.array([1, 2, 3, 4], dtype=int)),
     ("⧀(⌂)", np.array([[5], [6], [7]], dtype=int), np.array([5, 6, 7], dtype=int)),
     ("⟹(⌂, ⤨(II))", np.array([[1, 2], [3, 4]], dtype=int), np.array([[1, 1, 2, 2], [1, 1, 2, 2], [3, 3, 4, 4], [3, 3, 4, 4]], dtype=int)),
@@ -100,7 +197,7 @@ TEST_CASES = [
     ("⇌(↔, ↕)", common_input_grid, np.array([[3, 2, 1], [4, 5, 6], [9, 8, 7]], dtype=int)),
     ("⇌(↢, Ⳁ)", common_input_grid, np.array([[3, 2, 1], [4, 5, 6], [9, 8, 7]], dtype=int)),
     ("⇌(⇒(I,∅), ↢)", asymmetric_grid, np.array([[0, 2, 0], [0, 4, 3], [0, 0, 0]], dtype=int)),
-    ("¿(↔, ≗(↱I, ↱I))", common_input_grid, np.fliplr(common_input_grid)),    # ("¿C(↔, ≡(↱I, ↱V))", common_input_grid, common_input_grid),
+    ("¿(↔, ≗(↱I, ↱I))", common_input_grid, np.fliplr(common_input_grid)),
     ("¿(↔, ≗(⊡(I,I), ↱I))", common_input_grid, np.fliplr(common_input_grid)), 
     ("¿(↔, ≗(⊡(I,I), ↱V))", common_input_grid, common_input_grid),
     ("¿(↢, ≗(⌂, Ⳁ))", common_input_grid, np.flip(common_input_grid, axis=1)),
@@ -109,8 +206,33 @@ TEST_CASES = [
     ("◫(⌂, [(⊕(I,I,II), ↢)], Ⳁ)", tiny_grid_1x1_val1, tiny_grid_1x1_val1),
     ("◫(⌂, [(⊕(II,II,I), ↔)], ↕)", np.array([[1,1],[1,1]], dtype=int), np.array([[1,1],[1,1]], dtype=int)), 
     ("◫(⌂, [(⊕(II,II,II), ↔)], ↕)", asymmetric_grid, np.flipud(asymmetric_grid)),
-]
+    ("⟹(⇒(VIII, VII), ⇒(I, ∅))", np.array([[8, 8, 0, 0], [8, 0, 0, 1], [0, 0, 1, 1], [0, 0, 0, 0]], dtype=int), np.array([[7, 7, 0, 0], [7, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]], dtype=int)),
+    ("◎(I)", common_input_grid, np.array([[1, 0, 0], [0, 0, 0], [0, 0, 0]], dtype=int)),
+    ("◎(V)", common_input_grid, np.array([[0, 0, 0], [0, 5, 0], [0, 0, 0]], dtype=int)),
+    ("◎(∅)", common_input_grid, np.zeros_like(common_input_grid, dtype=int)),
+    ("◎(X)", common_input_grid, np.zeros_like(common_input_grid, dtype=int)),
+    ("◎(I)", tiny_grid_1x1_val1, tiny_grid_1x1_val1),
+    ("◎(II)", tiny_grid_1x1_val1, np.array([[0]], dtype=int)),
+    ("⧎(⊕(II,II,∅), ▦(II,II,I∅;∅I), ↱I)", None, np.array([[0, 1], [1, 0]], dtype=int)),
+    ("⧎(⊕(III,III,VII), ▦(III,III,I∅I;∅I∅;I∅I), ⊕(III,III,∅))", None, np.array([[7, 0, 7], [0, 7, 0], [7, 0, 7]], dtype=int)),
+    ("▦(IV,IV,I∅I∅;∅I∅I;I∅I∅;∅I∅I)", None, np.array([
+        [1,0,1,0],
+        [0,1,0,1],
+        [1,0,1,0],
+        [0,1,0,1]
+    ])),
+    
+    ("▦(V,V,I∅I∅I;∅I∅I∅;I∅I∅I;∅I∅I∅;I∅I∅I)", None, np.array([
+        [1,0,1,0,1],
+        [0,1,0,1,0],
+        [1,0,1,0,1],
+        [0,1,0,1,0],
+        [1,0,1,0,1]
+    ])),
+    ("◫(⌂, [(▦(IV,IV,I∅I∅;∅I∅I;I∅I∅;∅I∅I), ⇒(I, VII))], ⇒(I, V))", np.array([[1,0,1,0],[0,1,0,1],[1,0,1,0],[0,1,0,1]], dtype=int), np.array([[7,0,7,0],[0,7,0,7],[7,0,7,0],[0,7,0,7]], dtype=int)),
+    ("◫(⌂, [(▦(IV,IV,I∅I∅;∅I∅I;I∅I∅;∅I∅I), ⇒(I, VII))], ⇒(I, V))", np.array([[1,1,1,1],[1,1,1,1],[1,1,1,1],[1,1,1,1]], dtype=int), np.array([[5,5,5,5],[5,5,5,5],[5,5,5,5],[5,5,5,5]], dtype=int)),
 
+]
 
 @pytest.fixture
 def parser() -> SymbolicRuleParser:

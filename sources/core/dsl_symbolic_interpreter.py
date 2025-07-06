@@ -1,4 +1,3 @@
-# symbolic_interpreter.py
 
 import re
 import logging
@@ -50,22 +49,23 @@ def _process_match_pattern_cases_param(
     return raw_params 
 
 
-def _split_balanced_args(s: str, num_args: int = -1) -> List[str]:
-    """
-    Splits a string of comma-separated arguments, respecting balanced parentheses.
-    If num_args is specified, it will attempt to return exactly that many arguments.
-    """
+def _split_balanced_args(s: str, num_args: int = None) -> List[str]:
     args = []
-    balance = 0
+    balance_paren = 0
+    balance_bracket = 0
     current_arg = []
 
     for char in s:
         if char == '(':
-            balance += 1
+            balance_paren += 1
         elif char == ')':
-            balance -= 1
+            balance_paren -= 1
+        elif char == '[':
+            balance_bracket += 1
+        elif char == ']':
+            balance_bracket -= 1
 
-        if char == ',' and balance == 0:
+        if char == ',' and balance_paren == 0 and balance_bracket == 0:
             args.append("".join(current_arg).strip())
             current_arg = []
         else:
@@ -73,23 +73,13 @@ def _split_balanced_args(s: str, num_args: int = -1) -> List[str]:
 
     args.append("".join(current_arg).strip())
 
-    if num_args is not None and num_args != -1:
-        if len(args) < num_args and len(args) > 0:
-            last_arg = args.pop()
-            split_last = [x.strip() for x in last_arg.split(',')]
-            args.extend(split_last)
-
-    if num_args is not None and num_args != -1 and len(args) != num_args:
+    if num_args is not None and len(args) != num_args:
         raise ValueError(f"Expected {num_args} arguments but found {len(args)} after balanced split for string: '{s}'")
-
     return args
 
-# Roman numerals to int helper
 def  roman_to_int(s: str) -> int:
     """Converts a Roman numeral string (up to XXX) to an integer."""
-    # A complete map is simpler for this limited range than a full parsing algorithm
 
-    # Convert to upper case for case-insensitivity
     val = ROM_VAL_MAP.get(s.upper())
     if val is None:
         raise ValueError(f"Invalid or out-of-range Roman numeral: {s}. Max supported is XXX.")
@@ -99,17 +89,17 @@ _SAFE_EVAL_GLOBALS = {"np": np}
 _SAFE_EVAL_LOCALS = {}
 
 
+ROMAN_INDEX_PATTERN = r"(?:I|II|III|IV|V|VI|VII|VIII|IX|X)"
+ROMAN_VALUE_PATTERN = r"(?:I|II|III|IV|V|VI|VII|VIII|IX|X|∅)"
+
+
 SYMBOL_RULES = {
     "input_grid_reference": {
-        "sigil": "⌂", 
+        "sigil": "⌂",
     },
     "identity": {"sigil": "Ⳁ"},
-    "get_constant": {
-        "pattern": r"^↱(?P<value>\d+)$",
-        "transform_params": lambda m: {"value": int(m["value"])}
-    },
     "map_numbers": {
-        "pattern": r"^⇒\((?P<old>[IVX∅]+),(?P<new>[IVX∅]+)\)$",
+        "pattern": fr"^⇒\((?P<old>{ROMAN_VALUE_PATTERN}),\s*(?P<new>{ROMAN_VALUE_PATTERN})\)$",
         "transform_params": lambda m: {
             "mapping": {
                 roman_to_int(m["old"]): roman_to_int(m["new"])
@@ -117,34 +107,34 @@ SYMBOL_RULES = {
         }
     },
     "flip_h": {
-    "pattern": r"^↔(?:\((?P<arg_content>.+)\))?$",
-    "transform_params": lambda m: {
-        "argument_command_str": m.group("arg_content") if m.group("arg_content") else None
-    },
-    "nested_commands": {
-        "argument_command": "argument_command_str"
-    },
+        "pattern": r"^↔(?:\((?P<arg_content>.+)\))?$",
+        "transform_params": lambda m: {
+            "argument_command_str": m.group("arg_content") if m.group("arg_content") else None
+        },
+        "nested_commands": {
+            "argument_command": "argument_command_str"
+        },
     },
     "flip_v": {
-    "pattern": r"^↕(?:\((?P<arg_content>.+)\))?$",
-    "transform_params": lambda m: {
-        "argument_command_str": m.group("arg_content") if m.group("arg_content") else None
-    },
-    "nested_commands": {
-        "argument_command": "argument_command_str"
-    },
+        "pattern": r"^↕(?:\((?P<arg_content>.+)\))?$",
+        "transform_params": lambda m: {
+            "argument_command_str": m.group("arg_content") if m.group("arg_content") else None
+        },
+        "nested_commands": {
+            "argument_command": "argument_command_str"
+        },
     },
     "reverse_row": {
-    "pattern": r"^↢(?:\((?P<arg_content>.+)\))?$",
-    "transform_params": lambda m: {
-        "argument_command_str": m.group("arg_content") if m.group("arg_content") else None
-    },
-    "nested_commands": {
-        "argument_command": "argument_command_str"
-    },
+        "pattern": r"^↢(?:\((?P<arg_content>.+)\))?$",
+        "transform_params": lambda m: {
+            "argument_command_str": m.group("arg_content") if m.group("arg_content") else None
+        },
+        "nested_commands": {
+            "argument_command": "argument_command_str"
+        },
     },
     "shift_row_or_column": {
-        "pattern": r"^(?P<direction>⮝|⮞)\((?P<idx>[IVX]+),\s*(?P<shift_val>[IVX]+)\)$",
+        "pattern": fr"^(?P<direction>⮝|⮞)\((?P<idx>{ROMAN_INDEX_PATTERN}),\s*(?P<shift_val>{ROMAN_VALUE_PATTERN})\)$",
         "transform_params": lambda m: {
             "row_index": roman_to_int(m["idx"]) - 1 if m["direction"] == '⮝' else None,
             "col_index": roman_to_int(m["idx"]) - 1 if m["direction"] == '⮞' else None,
@@ -153,7 +143,7 @@ SYMBOL_RULES = {
         }
     },
     "apply_to_row": {
-        "pattern": r"^→\((?P<row_idx>[IVX]+),\s*(?P<inner_command_str>.+)\)$",
+        "pattern": fr"^→\((?P<row_idx>{ROMAN_INDEX_PATTERN}),\s*(?P<inner_command_str>.+)\)$",
         "transform_params": lambda m: {
             "row_index": roman_to_int(m["row_idx"]) - 1,
             "inner_command_str": m["inner_command_str"]
@@ -163,7 +153,7 @@ SYMBOL_RULES = {
         }
     },
     "swap_rows_or_columns": {
-        "pattern": r"^⇄\((?P<idx1>[IVX]+),(?P<idx2>[IVX]+)\)$",
+        "pattern": fr"^⇄\((?P<idx1>{ROMAN_INDEX_PATTERN}),\s*(?P<idx2>{ROMAN_INDEX_PATTERN})\)$",
         "transform_params": lambda m: {
             "row_swap": (roman_to_int(m["idx1"]) - 1, roman_to_int(m["idx2"]) - 1),
             "col_swap": None,
@@ -171,7 +161,7 @@ SYMBOL_RULES = {
         }
     },
     "repeat_grid_horizontal": {
-        "pattern": r"^◨\((?P<count>[IVX]+)\)$",
+        "pattern": fr"^◨\((?P<count>{ROMAN_VALUE_PATTERN})\)$",
         "transform_params": lambda m: {
             "inner_command_str": "Ⳁ",
             "vertical_repeats": 1,
@@ -183,7 +173,7 @@ SYMBOL_RULES = {
         "target_op_name": "repeat_grid"
     },
     "repeat_grid_vertical": {
-        "pattern": r"^⬒\((?P<count>[IVX]+)\)$",
+        "pattern": fr"^⬒\((?P<count>{ROMAN_VALUE_PATTERN})\)$",
         "transform_params": lambda m: {
             "inner_command_str": "Ⳁ",
             "vertical_repeats": roman_to_int(m["count"]),
@@ -204,7 +194,7 @@ SYMBOL_RULES = {
         }
     },
     "create_solid_color_grid": {
-        "pattern": r"^⊕\((?P<rows>[IVX]+),(?P<cols>[IVX]+),(?P<fill_color>[IVX]+|∅)\)$",
+        "pattern": fr"^⊕\((?P<rows>{ROMAN_INDEX_PATTERN}),\s*(?P<cols>{ROMAN_INDEX_PATTERN}),\s*(?P<fill_color>{ROMAN_VALUE_PATTERN})\)$",
         "transform_params": lambda m: {
             "rows": roman_to_int(m["rows"]),
             "cols": roman_to_int(m["cols"]),
@@ -212,71 +202,71 @@ SYMBOL_RULES = {
         }
     },
     "scale_grid": {
-        "pattern": r"^⤨\((?P<factor>[IVX]+)\)$",
+        "pattern": fr"^⤨\((?P<factor>{ROMAN_VALUE_PATTERN})\)$",
         "transform_params": lambda m: {
             "scale_factor": roman_to_int(m["factor"])
         }
     },
     "extract_bounding_box": {
-    "pattern": r"^⧈(?:\((?P<arg_content>.+)\))?$",
-    "transform_params": lambda m: {
-        "argument_command_str": m.group("arg_content") if m.group("arg_content") else None
-    },
-    "nested_commands": {
-        "argument_command": "argument_command_str"
-    },
+        "pattern": r"^⧈(?:\((?P<arg_content>.+)\))?$",
+        "transform_params": lambda m: {
+            "argument_command_str": m.group("arg_content") if m.group("arg_content") else None
+        },
+        "nested_commands": {
+            "argument_command": "argument_command_str"
+        },
     },
     "flatten_grid": {
-    "pattern": r"^⧀(?:\((?P<arg_content>.+)\))?$",
-    "transform_params": lambda m: {
-        "argument_command_str": m.group("arg_content") if m.group("arg_content") else None
+        "pattern": r"^⧀(?:\((?P<arg_content>.+)\))?$",
+        "transform_params": lambda m: {
+            "argument_command_str": m.group("arg_content") if m.group("arg_content") else None
+        },
+        "nested_commands": {
+            "argument_command": "argument_command_str"
+        },
     },
-    "nested_commands": {
-        "argument_command": "argument_command_str"
-    },
-    },
-"alternate": {
-    "pattern": r"^⇌\((?P<all_commands_str>.+)\)$",
-    "transform_params": lambda m: (
-        parts := _split_balanced_args(m["all_commands_str"], num_args=2),
-        {
-            "first_command_str": parts[0],
-            "second_command_str": parts[1]
+    "alternate": {
+        "pattern": r"^⇌\((?P<all_commands_str>.+)\)$",
+        "transform_params": lambda m: (
+            parts := _split_balanced_args(m["all_commands_str"], num_args=2),
+            {
+                "first_command_str": parts[0],
+                "second_command_str": parts[1]
+            }
+        )[1],
+        "nested_commands": {
+            "first": "first_command_str",
+            "second": "second_command_str"
         }
-    )[1],
-    "nested_commands": {
-        "first": "first_command_str",
-        "second": "second_command_str"
-    }
-},
-"conditional_transform": {
-    "pattern": r"^¿\((?P<all_args>.+)\)$",
-    "transform_params": lambda m: (
-        args := _split_balanced_args(m["all_args"], num_args=None),
-        {
-            "true_command_str": args[0],
-            "condition_command_str": args[1],
-            "false_command_str": args[2] if len(args) > 2 else None 
+    },
+    "conditional_transform": {
+        "pattern": r"^¿\((?P<all_args>.+)\)$",
+        "transform_params": lambda m: (
+            args := _split_balanced_args(m["all_args"], num_args=None),
+            {
+                "true_command_str": args[0],
+                "condition_command_str": args[1],
+                "false_command_str": args[2] if len(args) > 2 else None
+            }
+        )[1],
+        "nested_commands": {
+            "true_command": "true_command_str",
+            "condition_command": "condition_command_str",
+            "false_command": "false_command_str"
         }
-    )[1], 
-    "nested_commands": {
-        "true_command": "true_command_str",
-        "condition_command": "condition_command_str",
-        "false_command": "false_command_str"
-    }
-},
+    },
     "get_element": {
-        "pattern": r"^⊡\((?P<row_idx>[IVX]+),\s*(?P<col_idx>[IVX]+)\)$",
+        "pattern": fr"^⊡\((?P<row_idx>{ROMAN_INDEX_PATTERN}),\s*(?P<col_idx>{ROMAN_INDEX_PATTERN})\)$",
         "transform_params": lambda m: {
             "row_index": roman_to_int(m["row_idx"]) - 1,
             "col_index": roman_to_int(m["col_idx"]) - 1
         }
     },
     "get_constant": {
-    "pattern": r"^↱(?P<value>[IVX∅]+)$",
-    "transform_params": lambda m: {"value": roman_to_int(m["value"])},
-    "returns_literal": True
-},
+        "pattern": fr"^↱(?P<value>{ROMAN_VALUE_PATTERN})$",
+        "transform_params": lambda m: {"value": roman_to_int(m["value"])},
+        "returns_literal": True
+    },
     "compare_equality": {
         "pattern": r"^≡\((?P<all_commands_str>.+)\)$",
         "transform_params": lambda m: {
@@ -313,33 +303,33 @@ SYMBOL_RULES = {
         }
     },
     'block_pattern_mask': {
-        'pattern': r'^▦\((?P<block_rows>[IVX]+),\s*(?P<block_cols>[IVX]+),\s*"(?P<pattern_str>[I∅;]+)"\)$',
+        'pattern': fr'^▦\((?P<block_rows>{ROMAN_INDEX_PATTERN}),\s*(?P<block_cols>{ROMAN_INDEX_PATTERN}),\s*(?P<pattern_str>[I∅;]+)\)$',
         'transform_params': lambda m: {
-            "block_rows": roman_to_int(m["block_rows"]),
-            "block_cols": roman_to_int(m["block_cols"]),
+            "block_rows": ROM_VAL_MAP[m["block_rows"]],
+            "block_cols": ROM_VAL_MAP[m["block_cols"]],
             "pattern_matrix": np.array([
                 [True if char == 'I' else False for char in block_row_str]
                 for block_row_str in m["pattern_str"].split(';')
             ], dtype=bool)
         }
     },
-"mask_combinator": {
-    "pattern": r"^⧎\((?P<all_commands_str>.+)\)$",
-    "transform_params": lambda m: (
-        parts := _split_balanced_args(m["all_commands_str"], num_args=3),
-        {
-            "inner_command_str": parts[0],
-            "mask_command_str": parts[1],
-            "false_value_command_str": parts[2]
-        }
-    )[1],
-    "nested_commands": {
-        "inner_command": "inner_command_str",
-        "mask_command": "mask_command_str",
-        "false_value_command": "false_value_command_str"
+    "mask_combinator": {
+        "pattern": r"^⧎\((?P<all_commands_str>.+)\)$",
+        "transform_params": lambda m: (
+            parts := _split_balanced_args(m["all_commands_str"], num_args=3),
+            {
+                "inner_command_str": parts[0],
+                "mask_command_str": parts[1],
+                "false_value_command_str": parts[2]
+            }
+        )[1],
+        "nested_commands": {
+            "inner_command": "inner_command_str",
+            "mask_command": "mask_command_str",
+            "false_value_command": "false_value_command_str"
+        },
+        "target_op_name": "mask_combinator"
     },
-    "target_op_name": "mask_combinator"
-},
     'match_pattern': {
         'pattern': r'^◫\((?P<grid_to_evaluate_str>.+),\s*\[(?P<cases_str>.*)\],\s*(?P<default_action_str>.+)\)$',
         'transform_params': lambda m: {
@@ -353,6 +343,13 @@ SYMBOL_RULES = {
         },
         'param_processors': {
             'cases': '_process_match_pattern_cases_param'
+        }
+    },
+    "filter_grid_by_color": {
+        "pattern": fr"^◎\((?P<color_str>{ROMAN_VALUE_PATTERN})\)$",
+        "op_name": "FilterGridByColor",
+        "transform_params": lambda m: {
+            "target_color": roman_to_int(m["color_str"])
         }
     },
 }
@@ -391,10 +388,8 @@ class SymbolicRuleParser:
                     entry["nested_commands"] = rule["nested_commands"]
                 if "target_op_name" in rule:
                     entry["target_op_name"] = rule["target_op_name"]
-                # Start of change: Add param_processors to compiled rules
                 if "param_processors" in rule:
                     entry["param_processors"] = rule["param_processors"]
-                # End of change
                 compiled[pattern] = entry
             else:
                 raise ValueError(f"Rule must define 'sigil' or 'pattern': {op_name}")
@@ -476,17 +471,14 @@ class SymbolicRuleParser:
                     else:
                         processed_params = match.groupdict()
 
-                    # Start of change: Apply custom parameter processors
                     if 'param_processors' in data:
                         for target_param_name, processor_func_name in data['param_processors'].items():
                             if processor_func_name not in globals() or not callable(globals()[processor_func_name]):
                                 self.logger.error(f"Param processor function '{processor_func_name}' not found or not callable for '{data['operation']}'.")
                                 raise ValueError(f"Invalid parameter processor: '{processor_func_name}' for {data['operation']}.")
                             
-                            # The processor function modifies 'processed_params' in place
                             processed_params = globals()[processor_func_name](processed_params, self)
                             self.logger.debug(f"Params after '{processor_func_name}': {processed_params}")
-                    # End of change
 
                     if "nested_commands" in data:
                         for param_name_in_init, config in data["nested_commands"].items():
