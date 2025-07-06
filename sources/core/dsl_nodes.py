@@ -47,28 +47,6 @@ class AbstractTransformationCommand(ABC):
             if hasattr(child_cmd, 'set_executor_context'):
                 child_cmd.set_executor_context(executor)
                 
-
-class InputGridReference(AbstractTransformationCommand):
-    def __init__(self, logger: logging.Logger = None):
-        super().__init__(logger)
-        self._initial_puzzle_input: Optional[np.ndarray] = None
-
-    def set_initial_puzzle_input(self, initial_grid: np.ndarray):
-        if not isinstance(initial_grid, np.ndarray):
-            raise TypeError("Initial grid must be a NumPy array.")
-        self._initial_puzzle_input = initial_grid
-        self.logger.debug(f"InputGridReference received initial grid of shape {initial_grid.shape}")
-
-    def execute(self, current_grid: np.ndarray) -> np.ndarray:
-        if self._initial_puzzle_input is None:
-            raise ValueError(
-                "InputGridReference's initial puzzle input was not set! "
-                "Ensure the Executor initialized the command tree."
-            )
-        self.logger.debug(f"Executing InputGridReference: returning initial grid of shape {self._initial_puzzle_input.shape}")
-        return self._initial_puzzle_input.copy()
-    
-    
 class MapNumbers(AbstractTransformationCommand):
     synthesis_rules = {
         "type": "atomic",
@@ -142,7 +120,10 @@ class RepeatGrid(AbstractTransformationCommand):
         self.inner_command = inner_command
         self.vertical_repeats = vertical_repeats
         self.horizontal_repeats = horizontal_repeats
-
+        
+    def get_children_commands(self) -> Iterator['AbstractTransformationCommand']:
+        yield self.inner_command
+        
     def execute(self, input_grid: np.ndarray) -> np.ndarray:
         self.logger.debug("Executing RepeatGrid (%d x %d)", self.vertical_repeats, self.horizontal_repeats)
         grid_to_repeat = self.inner_command.execute(input_grid)
@@ -172,34 +153,53 @@ class RepeatGrid(AbstractTransformationCommand):
         """
 
 
+
 class FlipGridHorizontally(AbstractTransformationCommand):
     synthesis_rules = {"type": "atomic"}
 
-    def __init__(self, logger: logging.Logger = None):
+    def __init__(self, argument_command: Optional[AbstractTransformationCommand] = None, logger: logging.Logger = None):
         super().__init__(logger)
+        self.argument_command = argument_command
 
     def execute(self, input_grid: np.ndarray) -> np.ndarray:
-        self.logger.debug("Executing FlipGridHorizontally.")
-        return np.fliplr(input_grid)
+        if self.argument_command:
+            grid_to_flip = self.argument_command.execute(input_grid)
+        else:
+            grid_to_flip = input_grid
+        return np.fliplr(grid_to_flip)
+
+    def get_children_commands(self) -> Iterator['AbstractTransformationCommand']:
+        if self.argument_command:
+            yield self.argument_command
 
     @classmethod
-    def describe(cls)-> str:
+    def describe(cls) -> str:
         return "Mirrors the grid along the vertical axis (left becomes right)."
 
-
 class FlipGridVertically(AbstractTransformationCommand):
-    synthesis_rules = {"type": "atomic"}
+     synthesis_rules = {"type": "atomic"}
 
-    def __init__(self, logger: logging.Logger = None):
-        super().__init__(logger)
+     def __init__(self, argument_command: Optional[AbstractTransformationCommand] = None, logger: logging.Logger = None):
+         super().__init__(logger)
+         self.argument_command = argument_command # Add this line
 
-    def execute(self, input_grid: np.ndarray) -> np.ndarray:
-        self.logger.debug("Executing FlipGridVertically.")
-        return np.flipud(input_grid)
+     def execute(self, input_grid: np.ndarray) -> np.ndarray:
+         self.logger.debug("Executing FlipGridVertically.")
+         # Modify this part to use argument_command if present
+         if self.argument_command:
+             grid_to_flip = self.argument_command.execute(input_grid)
+         else:
+             grid_to_flip = input_grid
+         return np.flipud(grid_to_flip)
 
-    @classmethod
-    def describe(cls)-> str:
-        return "Mirrors the grid along the horizontal axis (top becomes bottom)."
+     def get_children_commands(self) -> Iterator['AbstractTransformationCommand']:
+         # Add this method to yield the child command if it exists
+         if self.argument_command:
+             yield self.argument_command
+
+     @classmethod
+     def describe(cls)-> str:
+         return "Mirrors the grid along the horizontal axis (top becomes bottom)."
 
 
 class Alternate(AbstractTransformationCommand):
@@ -218,6 +218,10 @@ class Alternate(AbstractTransformationCommand):
         self.first = first
         self.second = second
 
+    def get_children_commands(self) -> Iterator['AbstractTransformationCommand']:
+        yield self.first
+        yield self.second
+        
     def execute(self, input_grid: np.ndarray) -> np.ndarray:
         result = []
         for i, row in enumerate(input_grid):
@@ -311,24 +315,32 @@ class ReverseRow(AbstractTransformationCommand):
         "parameter_ranges": {}
     }
 
-    def __init__(self, logger: logging.Logger = None):
+    def __init__(self, argument_command: Optional[AbstractTransformationCommand] = None, logger: logging.Logger = None):
         super().__init__(logger)
+        self.argument_command = argument_command 
 
     def execute(self, input_grid: np.ndarray) -> np.ndarray:
         self.logger.debug("Executing ReverseRow on all rows.")
-        return input_grid[:, ::-1]  # Reverses each row
+        if self.argument_command:
+            grid_to_reverse = self.argument_command.execute(input_grid)
+        else:
+            grid_to_reverse = input_grid
+        return grid_to_reverse[:, ::-1]
 
+    def get_children_commands(self) -> Iterator['AbstractTransformationCommand']:
+        if self.argument_command:
+            yield self.argument_command
+            
     @classmethod
     def describe(cls) -> str:
         return """
         Reverses the elements in every row of the grid.
-        Useful as an inner command with ApplyToRow to reverse only specific rows.
+        Can apply to the current input grid or the result of an argument command.
         Example:
         Input: [[1, 2, 3], [4, 5, 6]]
-        Command: ReverseRow()
+        Command: ReverseRow() or ReverseRow(InputGridReference())
         Output: [[3, 2, 1], [6, 5, 4]]
         """
-
 
 class ApplyToRow(AbstractTransformationCommand):
     synthesis_rules = {
@@ -350,6 +362,9 @@ class ApplyToRow(AbstractTransformationCommand):
         transformed_row = self.inner_command.execute(row_to_transform)
         output_grid[self.row_index] = transformed_row.flatten()
         return output_grid
+
+    def get_children_commands(self) -> Iterator['AbstractTransformationCommand']:
+        yield self.inner_command
 
     @classmethod
     def describe(cls) -> str:
@@ -374,36 +389,96 @@ class ApplyToRow(AbstractTransformationCommand):
 class ConditionalTransform(AbstractTransformationCommand):
     synthesis_rules = {
         "type": "combinator",
-        "requires_inner": True,
+        "requires_inner": True, # This might need to be adjusted based on true_command being present
         "parameter_ranges": {}
     }
 
-    def __init__(self, inner_command: AbstractTransformationCommand, condition_func: callable, logger: logging.Logger = None):
+    def __init__(
+        self,
+        # This will be the command executed if the condition is True
+        true_command: AbstractTransformationCommand,
+        # This will be the command whose 'execute' method returns a boolean
+        condition_command: AbstractTransformationCommand, # Assuming boolean commands inherit this.
+                                                         # If you have AbstractBooleanCommand, use that.
+        # Optional: a command to execute if the condition is False
+        false_command: Optional[AbstractTransformationCommand] = None,
+        logger: logging.Logger = None
+    ):
         super().__init__(logger)
-        self.inner_command = inner_command
-        self.condition_func = condition_func
+        self.true_command = true_command
+        self.condition_command = condition_command
+        self.false_command = false_command
+        self.logger.debug(
+            f"ConditionalTransform initialized: "
+            f"condition='{condition_command.describe()}', "
+            f"true_branch='{true_command.describe()}', "
+            f"false_branch='{false_command.describe() if false_command else 'None'}'"
+        )
+
+    def get_children_commands(self) -> Iterator['AbstractTransformationCommand']:
+        yield self.true_command
+        yield self.condition_command
+        if self.false_command:
+            yield self.false_command
 
     def execute(self, input_grid: np.ndarray) -> np.ndarray:
-        if self.condition_func(input_grid):
-            return self.inner_command.execute(input_grid)
-        else:
-            return input_grid.copy()
+            condition_met = False
+            try:
+                condition_result = self.condition_command.execute(input_grid)
+                
+                if isinstance(condition_result, bool):
+                    condition_met = condition_result
+                elif isinstance(condition_result, np.ndarray):
+                    if condition_result.shape == (1, 1):
+                        condition_met = bool(condition_result.item())
+                    else:
+                        self.logger.error(
+                            f"ConditionalTransform: Condition command '{self.condition_command.describe()}' "
+                            f"returned a NumPy array of unexpected shape: {condition_result.shape}. "
+                            f"Expected (1,1) for boolean interpretation. Defaulting to False."
+                        )
+                        condition_met = False
+                else:
+                    self.logger.error(
+                        f"ConditionalTransform: Condition command '{self.condition_command.describe()}' "
+                        f"did not return a boolean or a 1x1 NumPy array. Got type: {type(condition_result)}. "
+                        f"Defaulting to False for condition evaluation."
+                    )
+                    condition_met = False
+            except Exception as e:
+                self.logger.error(f"Error executing condition command '{self.condition_command.describe()}': {e}")
+                condition_met = False 
+
+            if condition_met:
+                self.logger.debug(f"ConditionalTransform: Condition met. Executing true command: {self.true_command.describe()}")
+                return self.true_command.execute(input_grid)
+            elif self.false_command:
+                self.logger.debug(f"ConditionalTransform: Condition not met. Executing false command: {self.false_command.describe()}")
+                return self.false_command.execute(input_grid)
+            else:
+                self.logger.debug("ConditionalTransform: Condition not met and no false command. Returning input grid.")
+                return input_grid.copy() 
 
     @classmethod
     def describe(cls) -> str:
         return """
-            Applies a transformation conditionally based on a user-defined condition.
+            Applies a 'true_command' if a 'condition_command' evaluates to True, 
+            otherwise applies an optional 'false_command' or returns the input grid.
 
             Parameters:
-            - inner_command: The transformation command to apply if the condition is met.
-            - condition_func: A function that takes a grid and returns a boolean.
+            - true_command: The transformation command to apply if the condition is met.
+            - condition_command: A command that takes a grid and returns a boolean (e.g., a check/equality command).
+            - false_command (optional): The transformation command to apply if the condition is NOT met.
 
-            Example:
-            Input: [[1, 2, 3],
-                    [4, 5, 6]]
-            Command: ConditionalTransform(FlipGridHorizontally(), lambda grid: grid[0, 0] == 1)
-            Output: [[3, 2, 1],
-                     [6, 5, 4]]
+            Example (conceptual, syntax depends on actual command definitions):
+            Input: [[1, 2], [3, 4]]
+            Command: ¿C(FlipGridHorizontally(), CheckGridHasColor(0))
+            If grid has color 0: FlipGridHorizontally()
+            Else: Return original grid
+
+            Command: ¿C(Rotate90Degrees(), CheckGridSize(2,2), FlipGridVertically())
+            If grid is 2x2: Rotate90Degrees()
+            Else: FlipGridVertically()
         """
     
 class MaskCombinator(AbstractTransformationCommand):
@@ -423,7 +498,11 @@ class MaskCombinator(AbstractTransformationCommand):
         self.inner_command = inner_command
         self.mask_command = mask_command 
         self.false_value_command = false_value_command # <--- NEW: Store the command
-        
+
+
+    def get_children_commands(self) -> Iterator['AbstractTransformationCommand']:
+        yield self.inner_command
+
     def execute(self, input_grid: np.ndarray) -> np.ndarray:
         self.logger.debug(f"Executing MaskCombinator on {input_grid.shape}")
         
@@ -468,7 +547,8 @@ class ShiftRowOrColumn(AbstractTransformationCommand):
             }
         }
 
-    def __init__(self, row_index=None, col_index=None, shift_amount=1, wrap=True):
+    def __init__(self, row_index=None, col_index=None, shift_amount=1, wrap=True, logger: logging.Logger = None): # Add logger param
+        super().__init__(logger) # <-- ADD THIS LINE
         self.row_index = row_index
         self.col_index = col_index
         self.shift_amount = shift_amount
@@ -533,7 +613,10 @@ class Sequence(AbstractTransformationCommand):
     ):
         super().__init__(logger)
         self.commands = commands
-
+    
+    def get_children_commands(self) -> Iterator['AbstractTransformationCommand']:
+        yield from self.commands
+        
     def execute(self, input_grid: np.ndarray) -> np.ndarray:
         """
         Applies each command in sequence to the input grid.
@@ -636,23 +719,26 @@ class ScaleGrid(AbstractTransformationCommand):
 class ExtractBoundingBox(AbstractTransformationCommand):
     synthesis_rules = {
         "type": "atomic",
-        "requires_inner": False,
-        "parameter_ranges": {} # No parameters for this command currently
+        "requires_inner": False, # This should likely be True now if it can take an arg_command
+        "parameter_ranges": {}
     }
 
-    def __init__(self, logger: Optional[logging.Logger] = None):
+    def __init__(self, argument_command: Optional[AbstractTransformationCommand] = None, logger: Optional[logging.Logger] = None): # ADDED arg_command
         super().__init__(logger)
+        self.argument_command = argument_command # ADDED
 
     def execute(self, input_grid: np.ndarray) -> np.ndarray:
-        """
-        Extracts the smallest rectangular subgrid that contains all non-background (non-zero) pixels.
-        If the input grid is entirely background, returns a 1x1 grid with color 0.
-        """
         self.logger.debug("Executing ExtractBoundingBox")
-        if input_grid is None:
+        # MODIFIED: Use argument_command if provided
+        if self.argument_command:
+            grid_to_process = self.argument_command.execute(input_grid)
+        else:
+            grid_to_process = input_grid
+
+        if grid_to_process is None: # Changed from input_grid to grid_to_process
             raise ValueError("ExtractBoundingBox requires an input grid.")
 
-        non_background_coords = np.where(input_grid != 0)
+        non_background_coords = np.where(grid_to_process != 0) # Changed from input_grid
 
         if non_background_coords[0].size == 0:
             self.logger.debug("Input grid is entirely background, returning 1x1 empty grid.")
@@ -661,40 +747,53 @@ class ExtractBoundingBox(AbstractTransformationCommand):
         min_row, max_row = non_background_coords[0].min(), non_background_coords[0].max()
         min_col, max_col = non_background_coords[1].min(), non_background_coords[1].max()
 
-        bounding_box = input_grid[min_row : max_row + 1, min_col : max_col + 1]
+        bounding_box = grid_to_process[min_row : max_row + 1, min_col : max_col + 1] # Changed from input_grid
         return bounding_box
+
+    def get_children_commands(self) -> Iterator['AbstractTransformationCommand']: # ADDED
+        if self.argument_command:
+            yield self.argument_command
 
     @classmethod
     def describe(cls) -> str:
         return """
             Extracts the smallest rectangular subgrid that encompasses all non-background (non-zero) pixels.
             If the input grid contains only background pixels (0s), it returns a 1x1 grid with 0.
+            Can apply to the current input grid or the result of an argument command.
         """
 
 class FlattenGrid(AbstractTransformationCommand):
-    
-    
-    """
-    Transforms a 2D numpy array into a 1D (flattened) numpy array.
-    """
-
     synthesis_rules = {
         "type": "atomic",
-        "requires_inner": False,
+        "requires_inner": False, # This should likely be True now if it can take an arg_command
         "parameter_ranges": {},
     }
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, argument_command: Optional[AbstractTransformationCommand] = None, logger: logging.Logger = None): # ADDED arg_command
+        super().__init__(logger) # Pass logger to super()
+        self.argument_command = argument_command # ADDED
 
-    def execute(self, grid: np.ndarray) -> np.ndarray:
-        if grid.ndim != 2:
-            raise ValueError(f"FlattenGrid expects a 2D grid, but got {grid.ndim} dimensions.")
-        return grid.flatten()
+
+    def execute(self, input_grid: np.ndarray) -> np.ndarray:
+        if self.argument_command:
+            grid_to_flatten = self.argument_command.execute(input_grid)
+        else:
+            grid_to_flatten = input_grid
+
+        if grid_to_flatten.ndim != 2: # Changed from grid to grid_to_flatten
+            raise ValueError(f"FlattenGrid expects a 2D grid, but got {grid_to_flatten.ndim} dimensions.")
+        return grid_to_flatten.flatten() # Changed from grid
+
+    def get_children_commands(self) -> Iterator['AbstractTransformationCommand']: # ADDED
+        if self.argument_command:
+            yield self.argument_command
 
     @classmethod
     def describe(cls) -> str:
-        return "Flattens a 2D grid into a 1D array."
+        return """
+        Flattens a 2D grid into a 1D array.
+        Can apply to the current input grid or the result of an argument command.
+        """
     
 class GetElement(AbstractTransformationCommand):
     """
@@ -752,6 +851,12 @@ class CompareEquality(AbstractTransformationCommand):
         self.command1 = command1
         self.command2 = command2
         self.logger.debug(f"Initialized CompareEquality with command1: {self.command1} and command2: {self.command2}")
+
+    def get_children_commands(self) -> Iterator['AbstractTransformationCommand']:
+        if isinstance(self.command1, AbstractTransformationCommand):
+            yield self.command1
+        if isinstance(self.command2, AbstractTransformationCommand):
+            yield self.command2
 
     def _get_scalar_from_arg(self, arg: Union[AbstractTransformationCommand, int], input_grid: np.ndarray) -> int:
         """
@@ -825,7 +930,18 @@ class CompareGridEquality(AbstractTransformationCommand):
         self.command1 = command1
         self.command2 = command2
         self.logger.debug(f"Initialized CompareGridEquality with command1: {self.command1} and command2: {self.command2}")
-
+    
+    def get_children_commands(self) -> List[AbstractTransformationCommand]:
+        children = []
+        if self.command1:
+            children.append(self.command1)
+        if self.command2:
+            children.append(self.command2)
+        
+        self.logger.debug(f"CompareGridEquality.get_children_commands called. ID: {id(self)}. Returning children IDs: {[id(c) for c in children]}")
+        
+        return children
+    
     def _resolve_grid_arg(self, arg: AbstractTransformationCommand, input_grid: np.ndarray) -> np.ndarray:
         """
         Helper method to execute a command and ensure it returns a grid.
@@ -992,59 +1108,95 @@ class MatchPattern(AbstractTransformationCommand):
 
     def __init__(self, 
                  grid_to_evaluate_cmd: AbstractTransformationCommand,
-                 cases: List[Tuple[np.ndarray, AbstractTransformationCommand]],
+                 cases: List[Tuple[AbstractTransformationCommand, AbstractTransformationCommand]], 
                  default_action_cmd: AbstractTransformationCommand,
-                 logger: Optional[logging.Logger] = None):
-        super().__init__(logger)
+                 logger: logging.Logger = None):
+        super().__init__(logger=logger)
         self.grid_to_evaluate_cmd = grid_to_evaluate_cmd
-        self.cases = cases
         self.default_action_cmd = default_action_cmd
+        self.cases = cases 
+        
+        self.logger.debug(f"Initialized MatchPattern: grid_to_eval={self.grid_to_evaluate_cmd}, num_cases={len(self.cases)}, default_action={self.default_action_cmd}")
+
+    def get_children_commands(self) -> Iterator['AbstractTransformationCommand']:
+        if self.grid_to_evaluate_cmd:
+            yield self.grid_to_evaluate_cmd
+        
+        for case_pattern_cmd, action_cmd in self.cases:
+            if case_pattern_cmd:
+                yield case_pattern_cmd 
+            if action_cmd:
+                yield action_cmd 
+
+        if self.default_action_cmd:
+            yield self.default_action_cmd
 
     def execute(self, input_grid: np.ndarray) -> np.ndarray:
         grid_to_match = self.grid_to_evaluate_cmd.execute(input_grid)
         
         self.logger.debug(f"MatchPattern: Grid to evaluate (shape: {grid_to_match.shape}):\n{grid_to_match}")
 
-        for case_pattern, action_cmd in self.cases:
-            self.logger.debug(f"MatchPattern: Comparing with case pattern (shape: {case_pattern.shape}):\n{case_pattern}")
+        for case_pattern_cmd, action_cmd in self.cases:
+            try:
+                pattern_grid_to_compare = case_pattern_cmd.execute(input_grid)
+            except Exception as e:
+                self.logger.error(f"MatchPattern: Error executing case pattern command '{case_pattern_cmd.__class__.__name__}': {e}", exc_info=True)
+                continue 
+
+            self.logger.debug(f"MatchPattern: Comparing with resolved case pattern (shape: {pattern_grid_to_compare.shape}):\n{pattern_grid_to_compare}")
             
-            if grid_to_match.shape == case_pattern.shape and np.array_equal(grid_to_match, case_pattern):
-                self.logger.info(f"MatchPattern: Pattern matched! Executing action: {action_cmd.__class__.__name__}")
+            if grid_to_match.shape == pattern_grid_to_compare.shape and np.array_equal(grid_to_match, pattern_grid_to_compare):
+                self.logger.info(f"MatchPattern: Pattern matched. Executing action: {action_cmd.__class__.__name__}")
                 return action_cmd.execute(input_grid)
 
         self.logger.info(f"MatchPattern: No pattern matched. Executing default action: {self.default_action_cmd.__class__.__name__}")
         return self.default_action_cmd.execute(input_grid)
+
 
     @classmethod
     def describe(cls) -> str:
         return """
         Performs conditional execution based on matching an extracted subgrid against predefined patterns.
         It first evaluates a command to obtain a target grid. Then, it iterates through a list of cases,
-        each consisting of a specific pattern and an action to perform. If the target grid exactly matches
-        a pattern, the corresponding action is executed. If no pattern matches, a default action is executed.
+        each consisting of a specific pattern (represented by a command that produces a grid) and an action to perform.
+        If the target grid exactly matches the grid produced by a pattern command, the corresponding action is executed.
+        If no pattern matches, a default action is executed.
         """
         
-    class InputGridReference(AbstractTransformationCommand):
-        def __init__(self, logger: logging.Logger = None):
-            super().__init__(logger)
-            self._initial_puzzle_input: Optional[np.ndarray] = None # Placeholder
+class InputGridReference(AbstractTransformationCommand):
+    synthesis_rules = {"type": "atomic"} 
 
-        def set_initial_puzzle_input(self, initial_grid: np.ndarray):
-            """Sets the actual initial puzzle input from the Executor."""
-            if not isinstance(initial_grid, np.ndarray):
-                raise TypeError("Initial grid must be a NumPy array.")
-            self._initial_puzzle_input = initial_grid
+    def __init__(self, logger: logging.Logger = None):
+        super().__init__(logger)
+        self._initial_puzzle_input: Optional[np.ndarray] = None # Placeholder
+        self.logger.debug(f"InputGridReference.__init__ called. ID: {id(self)}")
 
-        def execute(self, current_grid: np.ndarray) -> np.ndarray:
-            """
-            Returns the stored initial puzzle input grid.
-            The current_grid argument is ignored for this command.
-            """
-            if self._initial_puzzle_input is None:
-                raise ValueError(
-                    "InputGridReference's initial puzzle input was not set! "
-                    "Ensure the Executor initialized the command tree."
-                )
-            if self.logger:
-                self.logger.debug(f"Executing InputGridReference: returning initial grid of shape {self._initial_puzzle_input.shape}")
-            return self._initial_puzzle_input.copy() # Return a copy to prevent external modification
+    def set_initial_puzzle_input(self, initial_grid: np.ndarray):
+        """Sets the actual initial puzzle input from the Executor."""
+        self.logger.debug(f"InputGridReference.set_initial_puzzle_input called. ID: {id(self)}. Setting input.")
+        if not isinstance(initial_grid, np.ndarray):
+            raise TypeError("Initial grid must be a NumPy array.")
+        self._initial_puzzle_input = initial_grid
+        self.logger.debug(f"InputGridReference.set_initial_puzzle_input called. ID: {id(self)}. Initial input set.")
+
+    def execute(self, current_grid: np.ndarray) -> np.ndarray:
+        """
+        Returns the stored initial puzzle input grid.
+        The current_grid argument is ignored for this command.
+        """
+        self.logger.debug(f"InputGridReference.execute called. ID: {id(self)}. _initial_puzzle_input is None: {self._initial_puzzle_input is None}")
+        if self._initial_puzzle_input is None:
+            raise ValueError(
+                "InputGridReference's initial puzzle input was not set! "
+                "Ensure the Executor initialized the command tree."
+            )
+        if self.logger:
+            self.logger.debug(f"Executing InputGridReference: returning initial grid of shape {self._initial_puzzle_input.shape}")
+        return self._initial_puzzle_input.copy()
+
+    @classmethod
+    def describe(cls) -> str:
+        return "Returns the initial puzzle input grid."
+
+    def set_executor_context(self, executor: Any):
+        super().set_executor_context(executor)

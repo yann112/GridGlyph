@@ -17,7 +17,10 @@ class DSLExecutor:
         self.logger.info("Executor initialization complete.")
 
     def _initialize_command_tree(self, command: AbstractTransformationCommand):
+        self.logger.debug(f"DSLExecutor._initialize_command_tree: Processing {command.__class__.__name__}, ID: {id(command)}")
+        self.logger.debug(f"DSLExecutor._initialize_command_tree: Type check - command is {type(command)}, InputGridReference is {InputGridReference}")
         if isinstance(command, InputGridReference):
+            self.logger.debug(f"DSLExecutor._initialize_command_tree: Found InputGridReference (ID: {id(command)}). Calling set_initial_puzzle_input.")
             command.set_initial_puzzle_input(self.initial_puzzle_input)
             self.logger.debug(f"Initialized InputGridReference with puzzle input.")
 
