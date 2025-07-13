@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 import logging
 import numpy as np
+import cv2
 from typing import List, Optional, Dict, Any, Tuple, Union, Iterator
 from assets.symbols import ROM_VAL_MAP , INT_VAL_MAP
 
@@ -499,10 +500,11 @@ class MaskCombinator(AbstractTransformationCommand):
         self.mask_command = mask_command 
         self.false_value_command = false_value_command 
 
-
     def get_children_commands(self) -> Iterator['AbstractTransformationCommand']:
         yield self.inner_command
-
+        yield self.mask_command
+        yield self.false_value_command
+        
     def execute(self, input_grid: np.ndarray) -> np.ndarray:
         self.logger.debug(f"Executing MaskCombinator on {input_grid.shape}")
         
@@ -1229,3 +1231,215 @@ class InputGridReference(AbstractTransformationCommand):
 
     def set_executor_context(self, executor: Any):
         super().set_executor_context(executor)
+        
+        
+class GetExternalBackgroundMask(AbstractTransformationCommand):
+    synthesis_rules = {
+        "type": "atomic",
+        "requires_inner": False,
+        "parameter_ranges": {
+            "background_color": (0, 9)
+        }
+    }
+
+    def __init__(self, background_color: int, logger: logging.Logger = None):
+        super().__init__(logger)
+        self.background_color = background_color
+
+    def execute(self, input_grid: np.ndarray) -> np.ndarray:
+        rows, cols = input_grid.shape
+        padded_rows, padded_cols = rows + 2, cols + 2
+
+        binary_padded_input = np.zeros((padded_rows, padded_cols), dtype=np.uint8)
+        
+        binary_padded_input[1:rows+1, 1:cols+1][input_grid == self.background_color] = 1
+        binary_padded_input[0, :] = 1
+        binary_padded_input[padded_rows-1, :] = 1
+        binary_padded_input[:, 0] = 1
+        binary_padded_input[:, padded_cols-1] = 1
+        
+        binary_for_cv = (binary_padded_input * 255).astype(np.uint8)
+
+        # Hardcoded 4-connectivity based on ARC puzzle common rules
+        cv_connectivity = 4 
+
+        num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(
+            binary_for_cv, 
+            connectivity=cv_connectivity, 
+            ltype=cv2.CV_32S
+        )
+        
+        external_background_label = labels[0, 0]
+        
+        external_background_mask_padded = (labels == external_background_label)
+        
+        unpadded_mask = external_background_mask_padded[1:rows+1, 1:cols+1]
+        
+        return unpadded_mask.astype(input_grid.dtype)
+
+    @classmethod
+    def describe(cls) -> str:
+        return """
+            Generates a binary mask identifying the external background of the grid using OpenCV's connected components.
+            Pixels connected to the grid's border (including through an added padding layer) that match the
+            `background_color` will be marked (as 1s). Connectivity is always 4-connected (up, down, left, right).
+            Internal regions of the `background_color` (holes) that are not connected to the external border
+            will NOT be marked.
+
+            Parameters:
+            - background_color: The integer color value considered as the primary background.
+
+            Output: A binary grid (0s and 1s) of the same shape as the input grid,
+                    where 1s represent the external background.
+        """
+    
+def _to_binary(grid: np.ndarray) -> np.ndarray:
+    """Converts a grid to a binary mask where 0 is False, non-zero is True (1)."""
+    return (grid != 0).astype(int)
+
+class MaskNot(AbstractTransformationCommand):
+    synthesis_rules = {
+        "type": "combinator",
+        "arity": 1,
+        "requires_inner": False, # It takes one command as its sole parameter
+        "parameter_ranges": {}
+    }
+
+    def __init__(self, mask_cmd: AbstractTransformationCommand, logger: logging.Logger = None):
+        super().__init__(logger)
+        self.mask_cmd = mask_cmd
+
+    def get_children_commands(self) -> Iterator['AbstractTransformationCommand']:
+        yield self.mask_cmd
+
+    def execute(self, input_grid: np.ndarray) -> np.ndarray:
+        mask = self.mask_cmd.execute(input_grid)
+
+        # Convert to binary before performing NOT, as per consistent logical operation
+        binary_mask = (mask != 0).astype(int)
+
+        # Invert binary mask (0s to 1s, 1s to 0s)
+        return (1 - binary_mask).astype(int)
+
+    @classmethod
+    def describe(cls) -> str:
+        return """
+            Performs an element-wise logical NOT operation on an input mask.
+            Any non-zero value in the input mask is treated as True (1), and 0 as False (0).
+            The output grid will have 1 where the input mask is False (0), and 0 where the input mask is True (non-zero).
+            The output is always a binary (0s and 1s) grid.
+        """
+
+class MaskOr(AbstractTransformationCommand):
+    synthesis_rules = {
+        "type": "combinator",
+        "arity": 2,
+        "requires_inner": False,
+        "parameter_ranges": {}
+    }
+
+    def __init__(self, mask_cmd1: AbstractTransformationCommand, mask_cmd2: AbstractTransformationCommand, logger: logging.Logger = None):
+        super().__init__(logger)
+        self.mask_cmd1 = mask_cmd1
+        self.mask_cmd2 = mask_cmd2
+
+    def get_children_commands(self) -> Iterator['AbstractTransformationCommand']:
+        yield self.mask_cmd1
+        yield self.mask_cmd2
+
+    def execute(self, input_grid: np.ndarray) -> np.ndarray:
+        mask1 = self.mask_cmd1.execute(input_grid)
+        mask2 = self.mask_cmd2.execute(input_grid)
+
+        # Convert to binary before performing OR, for consistent logical operation
+        binary_mask1 = (mask1 != 0).astype(int)
+        binary_mask2 = (mask2 != 0).astype(int)
+
+        if not (binary_mask1.shape == binary_mask2.shape):
+            self.logger.warning(f"Shape mismatch: Mask1 {binary_mask1.shape}, Mask2 {binary_mask2.shape}. Both must match for element-wise OR.")
+            raise ValueError("Shape mismatch in MaskOr: Masks must have same shape.")
+
+        # Logical OR for binary masks (0s and 1s): sum and clip at 1
+        return ((binary_mask1 + binary_mask2) > 0).astype(int)
+
+    @classmethod
+    def describe(cls) -> str:
+        return """
+            Performs an element-wise logical OR operation on two input masks.
+            Any non-zero value in the input masks is treated as True (1), and 0 as False (0).
+            Both mask commands must produce grids of the same shape.
+            The output grid will have 1 if either mask (after conversion to binary) has 1, and 0 otherwise.
+            The output is always a binary (0s and 1s) grid.
+        """
+
+class MaskAnd(AbstractTransformationCommand):
+    synthesis_rules = {
+        "type": "combinator",
+        "arity": 2, # Takes two commands as arguments
+        "requires_inner": False,
+        "parameter_ranges": {}
+    }
+
+    def __init__(self, mask_cmd1: AbstractTransformationCommand, mask_cmd2: AbstractTransformationCommand, logger: logging.Logger = None):
+        super().__init__(logger)
+        self.mask_cmd1 = mask_cmd1
+        self.mask_cmd2 = mask_cmd2
+
+    def get_children_commands(self) -> Iterator['AbstractTransformationCommand']:
+        yield self.mask_cmd1
+        yield self.mask_cmd2
+
+    def execute(self, input_grid: np.ndarray) -> np.ndarray:
+        mask1 = self.mask_cmd1.execute(input_grid)
+        mask2 = self.mask_cmd2.execute(input_grid)
+
+        # Convert to binary before performing AND, for consistent logical operation
+        binary_mask1 = (mask1 != 0).astype(int)
+        binary_mask2 = (mask2 != 0).astype(int)
+
+        if not (binary_mask1.shape == binary_mask2.shape):
+            self.logger.warning(f"Shape mismatch: Mask1 {binary_mask1.shape}, Mask2 {binary_mask2.shape}. Both must match for element-wise AND.")
+            raise ValueError("Shape mismatch in MaskAnd: Masks must have same shape.")
+
+        # For binary (0s and 1s) masks, multiplication acts as logical AND
+        return (binary_mask1 * binary_mask2).astype(int)
+
+    @classmethod
+    def describe(cls) -> str:
+        return """
+            Performs an element-wise logical AND operation on two input masks.
+            Any non-zero value in the input masks is treated as True (1), and 0 as False (0).
+            Both mask commands must produce grids of the same shape.
+            The output grid will have 1 where both masks (after conversion to binary) have 1, and 0 otherwise.
+            The output is always a binary (0s and 1s) grid.
+        """
+        
+class Binarize(AbstractTransformationCommand):
+
+    synthesis_rules = {
+        "type": "transformation", 
+        "arity": 1, 
+        "requires_inner": False,
+        "parameter_ranges": {}
+    }
+
+    def __init__(self, cmd: AbstractTransformationCommand, logger: logging.Logger = None):
+        super().__init__(logger)
+        self.cmd = cmd 
+
+    def get_children_commands(self) -> Iterator['AbstractTransformationCommand']:
+        yield self.cmd
+
+    def execute(self, input_grid: np.ndarray) -> np.ndarray:
+        grid_to_binarize = self.cmd.execute(input_grid)
+
+        return (grid_to_binarize != 0).astype(int)
+
+    @classmethod
+    def describe(cls) -> str:
+        return """
+            Converts an input grid into a binary mask (0s and 1s).
+            Any non-zero value in the input grid is converted to 1 (True),
+            and any 0 value is converted to 0 (False).
+            This is useful for explicitly creating a mask from any grid.
+        """

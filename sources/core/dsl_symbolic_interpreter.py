@@ -352,6 +352,56 @@ SYMBOL_RULES = {
             "target_color": roman_to_int(m["color_str"])
         }
     },
+    "get_external_background_mask": {
+        "pattern": fr"^⏚\((?P<background_color>{ROMAN_VALUE_PATTERN})\)$",
+        "transform_params": lambda m: {
+            "background_color": roman_to_int(m["background_color"])
+        }
+    },
+    "mask_not": {
+        "pattern": r"^¬\((?P<mask_cmd_str>.+)\)$", # Using direct Unicode character
+        "transform_params": lambda m: {
+            "mask_cmd_str": m["mask_cmd_str"]
+        },
+        "nested_commands": {
+            "mask_cmd": "mask_cmd_str"
+        },
+        "target_op_name": "mask_not"
+    },
+    "mask_and": {
+        "pattern": r"^∧\((?P<all_commands_str>.+)\)$", # Using direct Unicode character
+        "transform_params": lambda m: {
+            "mask_cmd1_str": _split_balanced_args(m["all_commands_str"], 2)[0],
+            "mask_cmd2_str": _split_balanced_args(m["all_commands_str"], 2)[1]
+        },
+        "nested_commands": {
+            "mask_cmd1": "mask_cmd1_str",
+            "mask_cmd2": "mask_cmd2_str"
+        },
+        "target_op_name": "mask_and"
+    },
+    "mask_or": {
+        "pattern": r"^∨\((?P<all_commands_str>.+)\)$", # Using direct Unicode character
+        "transform_params": lambda m: {
+            "mask_cmd1_str": _split_balanced_args(m["all_commands_str"], 2)[0],
+            "mask_cmd2_str": _split_balanced_args(m["all_commands_str"], 2)[1]
+        },
+        "nested_commands": {
+            "mask_cmd1": "mask_cmd1_str",
+            "mask_cmd2": "mask_cmd2_str"
+        },
+        "target_op_name": "mask_or"
+    },
+    "binarize": {
+        "pattern": r"^ⓑ\((?P<cmd_str>.+)\)$",
+        "op_name": "Binarize", # Maps to the Binarize Python class
+        "transform_params": lambda m: {
+            "cmd_str": m["cmd_str"]
+        },
+        "nested_commands": {
+            "cmd": "cmd_str"
+        }
+    }
 }
 
 

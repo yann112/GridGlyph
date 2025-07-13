@@ -2,7 +2,7 @@ from typing import Dict, Type
 from core.dsl_nodes import *
 
 class TransformationFactory:
-    OPERATION_MAP = { # Open curly brace
+    OPERATION_MAP = { 
         "shift_row": ShiftRowOrColumn,
         "shift_column": ShiftRowOrColumn,
         'identity': Identity,
@@ -40,8 +40,13 @@ class TransformationFactory:
         'block_pattern_mask': BlockPatternMask,
         'match_pattern': MatchPattern,
         'input_grid_reference': InputGridReference,
-        'filter_grid_by_color':FilterGridByColor
-}       
+        'filter_grid_by_color':FilterGridByColor,
+        'get_external_background_mask': GetExternalBackgroundMask,
+        'mask_and': MaskAnd,
+        'mask_or': MaskOr,
+        'mask_not': MaskNot,
+        'binarize': Binarize
+}
 
     @classmethod
     def get_class(cls, operation_name: str) -> Type[AbstractTransformationCommand]:
