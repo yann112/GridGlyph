@@ -1069,7 +1069,7 @@ class IfElseCondition(AbstractTransformationCommand):
         return "Executes one of two commands based on a condition."
     
 
-class BlockPatternMask(AbstractTransformationCommand):
+class BlockGridBuilder(AbstractTransformationCommand): # Renamed class
     synthesis_rules = {
         "type": "atomic",
         "requires_inner": False,
@@ -1083,52 +1083,56 @@ class BlockPatternMask(AbstractTransformationCommand):
     def __init__(self, 
                  block_rows: int, 
                  block_cols: int, 
-                 pattern_matrix: np.ndarray, 
+                 pattern_matrix: np.ndarray,
                  block_pixel_size: int = 1, 
                  logger: logging.Logger = None):
         super().__init__(logger)
         self.block_rows = block_rows
         self.block_cols = block_cols
-        self.pattern_matrix = pattern_matrix
+        self.pattern_matrix = pattern_matrix 
         self.block_pixel_size = block_pixel_size
 
         if self.pattern_matrix.shape != (self.block_rows, self.block_cols):
-            self.logger.error(f"BlockPatternMask: pattern_matrix shape {self.pattern_matrix.shape} does not match declared block_rows {self.block_rows} and block_cols {self.block_cols}.")
+            self.logger.error(f"BlockGridBuilder: pattern_matrix shape {self.pattern_matrix.shape} does not match declared block_rows {self.block_rows} and block_cols {self.block_cols}.")
             raise ValueError("Pattern matrix dimensions must match block_rows and block_cols.")
         
-        self.logger.debug(f"Initialized BlockPatternMask: {self.block_rows}x{self.block_cols} blocks, pixel size {self.block_pixel_size} with pattern:\n{self.pattern_matrix}")
+        self.logger.debug(f"Initialized BlockGridBuilder: {self.block_rows}x{self.block_cols} blocks, pixel size {self.block_pixel_size} with pattern:\n{self.pattern_matrix}")
 
     def execute(self, input_grid: np.ndarray = None) -> np.ndarray:
-        self.logger.debug("Executing BlockPatternMask.")
+        self.logger.debug("Executing BlockGridBuilder.")
         
         total_rows = self.block_rows * self.block_pixel_size
         total_cols = self.block_cols * self.block_pixel_size
 
-        full_mask = np.full((total_rows, total_cols), False, dtype=bool)
+        output_grid = np.zeros((total_rows, total_cols), dtype=int) 
 
         for r_block in range(self.block_rows):
             for c_block in range(self.block_cols):
-                if self.pattern_matrix[r_block, c_block]:
+                block_color = self.pattern_matrix[r_block, c_block]
+                
+                if block_color != 0: 
                     start_row = r_block * self.block_pixel_size
                     end_row = start_row + self.block_pixel_size
                     start_col = c_block * self.block_pixel_size
                     end_col = start_col + self.block_pixel_size
-                    full_mask[start_row:end_row, start_col:end_col] = True
+                    output_grid[start_row:end_row, start_col:end_col] = block_color
         
-        self.logger.debug(f"BlockPatternMask generated mask of shape: {full_mask.shape}")
-        return full_mask
+        self.logger.debug(f"BlockGridBuilder generated grid of shape: {output_grid.shape}")
+        return output_grid
 
     @classmethod
     def describe(cls) -> str:
         return """
-            Generates a boolean mask grid based on a specified pattern of True ('I') and False ('∅') blocks.
+            Generates a colored grid based on a specified pattern of symbolic color values.
             Each 'block' in the pattern is expanded to a given pixel size (e.g., 1x1, 3x3 pixels).
             Parameters:
-            - block_rows: The number of rows in the block pattern.
-            - block_cols: The number of columns in the block pattern.
-            - pattern_str: A string representing the 2D pattern (e.g., "I∅I;∅I∅").
-            - block_pixel_size: The number of pixels each block in the pattern expands to (e.g., 1 for 1x1, 3 for 3x3).
+            - block_rows: The number of rows in the block pattern (Roman numeral).
+            - block_cols: The number of columns in the block pattern (Roman numeral).
+            - pattern_list_str: A string representing the 2D pattern using symbolic colors
+              (e.g., '[[II,∅,I],[∅,V,∅]]' for a 2x3 pattern with colors 2,0,1 / 0,5,0).
+            - block_pixel_size: The number of pixels each block in the pattern expands to (e.g., 1 for 1x1).
         """
+        
         
 class MatchPattern(AbstractTransformationCommand):
     synthesis_rules = {

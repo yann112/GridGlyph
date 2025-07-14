@@ -7,46 +7,120 @@ from core.transformation_factory import TransformationFactory
 from core.dsl_nodes import AbstractTransformationCommand
 from assets.symbols import ROM_VAL_MAP 
 
-def _process_match_pattern_cases_param(
+
+def _process_match_pattern_full_params(
     raw_params: Dict[str, Any],
     parser: 'SymbolicRuleParser'
 ) -> Dict[str, Any]:
-    """
-    Helper to parse the complex 'cases_str' for MatchPattern.
-    It takes the raw parameters dictionary, extracts 'cases_str', parses it,
-    and adds the parsed 'cases' list to the dictionary, removing 'cases_str'.
-    """
-    cases_str = raw_params.pop('cases_str', "") 
+    full_params_str = raw_params.pop('full_params_str', "").strip()
+    main_params_strs = _split_balanced_args(full_params_str, num_args=3)
+
+    if len(main_params_strs) != 3:
+        raise ValueError(f"Malformed ◫ command: Expected 3 main arguments (grid, cases, default_action) but found {len(main_params_strs)} in '{full_params_str}'")
+
+    grid_to_evaluate_str = main_params_strs[0].strip()
+    cases_list_str = main_params_strs[1].strip()
+    default_action_str = main_params_strs[2].strip()
+
+    grid_to_evaluate_cmd = parser.parse_token(grid_to_evaluate_str)
+
+    if not (cases_list_str.startswith('[') and cases_list_str.endswith(']')):
+        raise ValueError(f"Malformed ◫ cases list: Expected cases to be enclosed in square brackets '[]' but found '{cases_list_str}'")
+    
+    cases_str_for_processor = cases_list_str[1:-1].strip()
 
     parsed_cases: List[Tuple['AbstractTransformationCommand', 'AbstractTransformationCommand']] = []
-    if not cases_str.strip():
-        raw_params['cases'] = parsed_cases 
-        return raw_params
+    if cases_str_for_processor:
+        individual_case_strs = []
+        balance_paren = 0
+        balance_bracket = 0
+        current_case_chars = []
 
-    individual_case_strs = _split_balanced_args(cases_str, num_args=None)
+        for char in cases_str_for_processor:
+            if char == '(':
+                balance_paren += 1
+            elif char == ')':
+                balance_paren -= 1
+            elif char == '[':
+                balance_bracket += 1
+            elif char == ']':
+                balance_bracket -= 1
 
-    for raw_tuple_str in individual_case_strs:
-        stripped_tuple_str = raw_tuple_str.strip()
-        if stripped_tuple_str.startswith('(') and stripped_tuple_str.endswith(')'):
+            if char == ',' and balance_paren == 0 and balance_bracket == 0:
+                part = "".join(current_case_chars).strip()
+                if part:
+                    individual_case_strs.append(part)
+                current_case_chars = []
+            else:
+                current_case_chars.append(char)
+        
+        final_part = "".join(current_case_chars).strip()
+        if final_part:
+            individual_case_strs.append(final_part)
+        
+        for raw_tuple_str in individual_case_strs:
+            stripped_tuple_str = raw_tuple_str.strip()
+            
+            if not (stripped_tuple_str.startswith('(') and stripped_tuple_str.endswith(')')):
+                raise ValueError(f"Malformed case tuple format: '{raw_tuple_str}'. Expected (condition, action).")
+            
             inner_tuple_content = stripped_tuple_str[1:-1].strip()
-        else:
-            inner_tuple_content = stripped_tuple_str
 
-        condition_action_strs = _split_balanced_args(inner_tuple_content, num_args=2)
+            condition_action_strs = _split_balanced_args(inner_tuple_content, num_args=2)
 
-        if len(condition_action_strs) != 2:
-            raise ValueError(f"Malformed case tuple: {raw_tuple_str}")
+            if len(condition_action_strs) != 2:
+                raise ValueError(f"Malformed case tuple: {raw_tuple_str}. Could not parse into condition and action.")
 
-        condition_cmd_str = condition_action_strs[0].strip()
-        action_cmd_str = condition_action_strs[1].strip()
+            condition_cmd_str = condition_action_strs[0].strip()
+            action_cmd_str = condition_action_strs[1].strip()
 
-        condition_cmd = parser.parse_token(condition_cmd_str)
-        action_cmd = parser.parse_token(action_cmd_str)
+            condition_cmd = parser.parse_token(condition_cmd_str)
+            action_cmd = parser.parse_token(action_cmd_str)
 
-        parsed_cases.append((condition_cmd, action_cmd))
+            parsed_cases.append((condition_cmd, action_cmd))
     
-    raw_params['cases'] = parsed_cases
-    return raw_params 
+    default_action_cmd = parser.parse_token(default_action_str)
+
+    return {
+        'grid_to_evaluate_cmd': grid_to_evaluate_cmd,
+        'cases': parsed_cases,
+        'default_action_cmd': default_action_cmd
+    }
+
+
+def parse_symbolic_grid_literal(grid_list_str: str) -> np.ndarray:
+    """
+    Parses a string representing a grid literal with symbolic color values
+    (e.g., '[[II,II,∅],[II,∅,II]]') into a NumPy array of integers.
+    Assumes ROM_VAL_MAP and _split_balanced_args are accessible in scope.
+    """
+    if not (grid_list_str.startswith('[[') and grid_list_str.endswith(']]')):
+        raise ValueError(f"Invalid grid literal format: '{grid_list_str}'. Expected '[[...]]'.")
+    inner_str = grid_list_str[2:-2]
+
+    row_strings = re.split(r'\],\[', inner_str) 
+
+    parsed_rows = []
+    for row_str in row_strings:
+        symbol_list = _split_balanced_args(row_str) 
+        
+        parsed_row = []
+        for symbol in symbol_list:
+            if symbol in ROM_VAL_MAP:
+                parsed_row.append(ROM_VAL_MAP[symbol])
+            else:
+                raise ValueError(f"Unknown symbolic color value: '{symbol}' in grid literal.")
+        parsed_rows.append(parsed_row)
+
+    if not parsed_rows:
+        return np.array([], dtype=int).reshape(0, 0) # Handle empty grid
+    
+    first_row_len = len(parsed_rows[0])
+    for i, row in enumerate(parsed_rows):
+        if len(row) != first_row_len:
+            raise ValueError(f"Rows in grid literal have inconsistent lengths. Row {i} has {len(row)} elements, expected {first_row_len}.")
+
+    return np.array(parsed_rows, dtype=int)
 
 
 def _split_balanced_args(s: str, num_args: int = None) -> List[str]:
@@ -302,16 +376,13 @@ SYMBOL_RULES = {
             "false_branch": "false_branch_str"
         }
     },
-    'block_pattern_mask': {
-        'pattern': fr'^▦\((?P<block_rows>{ROMAN_INDEX_PATTERN}),\s*(?P<block_cols>{ROMAN_INDEX_PATTERN}),\s*(?P<pattern_str>[I∅;]+)\)$',
+    'block_grid_builder': { # Renamed rule key for internal clarity
+        'pattern': fr'^▦\((?P<block_rows>{ROMAN_INDEX_PATTERN}),\s*(?P<block_cols>{ROMAN_INDEX_PATTERN}),\s*(?P<pattern_list_str>\[\[.+\]\])\)$',
         'transform_params': lambda m: {
-            "block_rows": ROM_VAL_MAP[m["block_rows"]],
-            "block_cols": ROM_VAL_MAP[m["block_cols"]],
-            "pattern_matrix": np.array([
-                [True if char == 'I' else False for char in block_row_str]
-                for block_row_str in m["pattern_str"].split(';')
-            ], dtype=bool)
-        }
+            "block_rows": roman_to_int(m["block_rows"]),
+            "block_cols": roman_to_int(m["block_cols"]),
+            "pattern_matrix": parse_symbolic_grid_literal(m["pattern_list_str"]) # Cleanly call the helper
+        },
     },
     "mask_combinator": {
         "pattern": r"^⧎\((?P<all_commands_str>.+)\)$",
@@ -331,18 +402,13 @@ SYMBOL_RULES = {
         "target_op_name": "mask_combinator"
     },
     'match_pattern': {
-        'pattern': r'^◫\((?P<grid_to_evaluate_str>.+),\s*\[(?P<cases_str>.*)\],\s*(?P<default_action_str>.+)\)$',
+        'pattern': r'^◫\((?P<full_params_str>.*)\)$', # Capture everything inside ◫(...)
         'transform_params': lambda m: {
-            "grid_to_evaluate_str": m["grid_to_evaluate_str"],
-            "cases_str": m["cases_str"],
-            "default_action_str": m["default_action_str"]
+            "full_params_str": m["full_params_str"]
         },
-        'nested_commands': {
-            'grid_to_evaluate_cmd': 'grid_to_evaluate_str',
-            'default_action_cmd': 'default_action_str',
-        },
+        'nested_commands': {}, # Remove specific nested_commands here, they will be parsed in the processor
         'param_processors': {
-            'cases': '_process_match_pattern_cases_param'
+            'full_params': '_process_match_pattern_full_params' # New processor function
         }
     },
     "filter_grid_by_color": {

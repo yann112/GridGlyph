@@ -37,7 +37,7 @@ class TransformationFactory:
         'compare_equality': CompareEquality,
         'get_constant': GetConstant,
         'compare_grid_equality': CompareGridEquality,
-        'block_pattern_mask': BlockPatternMask,
+        'block_grid_builder': BlockGridBuilder,
         'match_pattern': MatchPattern,
         'input_grid_reference': InputGridReference,
         'filter_grid_by_color':FilterGridByColor,
