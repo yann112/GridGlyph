@@ -45,7 +45,8 @@ class TransformationFactory:
         'mask_and': MaskAnd,
         'mask_or': MaskOr,
         'mask_not': MaskNot,
-        'binarize': Binarize
+        'binarize': Binarize,
+        'locate_pattern': LocatePattern
 }
 
     @classmethod

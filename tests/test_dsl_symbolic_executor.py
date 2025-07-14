@@ -298,8 +298,29 @@ TEST_CASES = [
      np.array([[0,0,0,0,0],[0,0,0,0,0],[0,0,4,0,0],[0,0,0,0,0],[0,0,0,0,0]], dtype=int)),
     ("⧎(⌂,∨(⏚(∅),ⓑ(◎(III))),⟹(∨(⏚(∅),ⓑ(◎(III))),⟹(⇒(∅,IV),⇒(I,∅))))",
      np.array([[0,0,0,0,0],[0,3,3,3,0],[0,3,0,3,0],[0,3,3,3,0],[0,0,0,0,0]], dtype=int),
-     np.array([[0,0,0,0,0],[0,3,3,3,0],[0,3,4,3,0],[0,3,3,3,0],[0,0,0,0,0]], dtype=int))
-
+     np.array([[0,0,0,0,0],[0,3,3,3,0],[0,3,4,3,0],[0,3,3,3,0],[0,0,0,0,0]], dtype=int)),
+    ("⌖(↱V, ↱V)", None, np.array([[1]], dtype=int)),
+    ("⌖(⊕(II,II,I), ↱I)", None, np.array([[1,1],[1,1]], dtype=int)),
+    ("⌖(⊕(II,II,I), ↱V)", None, np.array([[0,0],[0,0]], dtype=int)),
+    ("⌖(⊕(III,III,I), ▦(II,II,[[I,I],[I,I]]))", None, np.array([[1,1,1],[1,1,1],[1,1,1]], dtype=int)),
+    ("⌖(⊕(III,III,I), ▦(II,II,[[?,?],[?,?]]))", None, np.array([[1,1,1],[1,1,1],[1,1,1]], dtype=int)),
+    ("⌖(⊕(III,III,I), ▦(II,II,[[I,?],[?,I]]))", None, np.array([[1,1,1],[1,1,1],[1,1,1]], dtype=int)),
+    ("⌖(⊕(IV,IV,I), ▦(II,II,[[?,I],[I,?]]))", None, np.array([[1,1,1,1],[1,1,1,1],[1,1,1,1],[1,1,1,1]], dtype=int)),
+    ("⌖(⊕(III,III,I), ▦(III,III,[[?,I,?],[I,?,I],[?,I,?]]))", np.array([[0,1,0],[1,2,1],[0,1,0]], dtype=int), np.array([[1,1,1],[1,1,1],[1,1,1]], dtype=int)),
+    ("⌖(⊕(III,III,I), ▦(II,II,[[I,I],[I,I]]))", np.array([[1,1,0],[1,1,0],[0,0,0]], dtype=int), np.array([[1,1,1],[1,1,1],[1,1,1]], dtype=int)),
+    ("⌖(⊕(V,V,I), ▦(II,II,[[?,?],[?,?]]))", None, np.array([[1,1,1,1,1],[1,1,1,1,1],[1,1,1,1,1],[1,1,1,1,1],[1,1,1,1,1]], dtype=int)),
+    ("⌖(⊕(III,III,I), ▦(II,II,[[∅,∅],[∅,∅]]))", None, np.array([[0,0,0],[0,0,0],[0,0,0]], dtype=int)),
+    ("⌖(⊕(II,II,V), ▦(II,II,[[V,V],[V,V]]))", None, np.array([[1,1],[1,1]], dtype=int)),
+    ("⌖(⊕(II,II,V), ▦(II,II,[[I,I],[I,I]]))", None, np.array([[0,0],[0,0]], dtype=int)),
+    ("⌖(⊕(II,II,V), ▦(III,III,[[V,V,V],[V,V,V],[V,V,V]]))", None, np.array([[0,0],[0,0]], dtype=int)),
+    ("⌖(⊕(II,II,V), ▦(I,I,[[?]]))", None, np.array([[1,1],[1,1]], dtype=int)),
+    ("⌖(⌂, ▦(II,II,[[?,?],[?,?]]))", np.array([[1,2,3],[4,5,6],[7,8,9]], dtype=int), np.array([[1,1,1],[1,1,1],[1,1,1]], dtype=int)),
+    ("⌖(⌂, ▦(I,I,[[5]]))", np.array([[1,2,3],[4,5,6],[7,8,9]], dtype=int), np.array([[0,0,0],[0,1,0],[0,0,0]], dtype=int)),
+    ("⌖(⌂, ▦(II,II,[[5,?],[?,9]]))", np.array([[1,2,3],[4,5,6],[7,8,9]], dtype=int), np.array([[0,0,0],[0,1,1],[0,1,1]], dtype=int)),
+    ("⌖(⌂, ▦(II,II,[[?,?],[?,?]]))", np.array([[0,0,0],[0,1,0],[0,0,0]], dtype=int), np.array([[1,1,1],[1,1,1],[1,1,1]], dtype=int)), 
+    ("⌖(⌂, ▦(I,I,[[1]]))", tiny_grid_1x1_val1, tiny_grid_1x1_val1),
+    ("⌖(⌂, ▦(I,I,[[2]]))", tiny_grid_1x1_val1, np.array([[0]], dtype=int)),
+    ("⌖(⌂, ▦(II,II,[[?,?],[?,?]]))", tiny_grid_1x1_val1, np.array([[0]], dtype=int)),
 ]
 
 @pytest.fixture

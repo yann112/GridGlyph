@@ -7,6 +7,12 @@ from core.transformation_factory import TransformationFactory
 from core.dsl_nodes import AbstractTransformationCommand
 from assets.symbols import ROM_VAL_MAP 
 
+_WILDCARD_VALUE = -1
+_SAFE_EVAL_GLOBALS = {"np": np}
+_SAFE_EVAL_LOCALS = {}
+ROMAN_INDEX_PATTERN = r"(?:I|II|III|IV|V|VI|VII|VIII|IX|X)"
+ROMAN_VALUE_PATTERN = r"(?:I|II|III|IV|V|VI|VII|VIII|IX|X|∅)"
+
 
 def _process_match_pattern_full_params(
     raw_params: Dict[str, Any],
@@ -89,32 +95,33 @@ def _process_match_pattern_full_params(
 
 
 def parse_symbolic_grid_literal(grid_list_str: str) -> np.ndarray:
-    """
-    Parses a string representing a grid literal with symbolic color values
-    (e.g., '[[II,II,∅],[II,∅,II]]') into a NumPy array of integers.
-    Assumes ROM_VAL_MAP and _split_balanced_args are accessible in scope.
-    """
     if not (grid_list_str.startswith('[[') and grid_list_str.endswith(']]')):
         raise ValueError(f"Invalid grid literal format: '{grid_list_str}'. Expected '[[...]]'.")
     inner_str = grid_list_str[2:-2]
 
-    row_strings = re.split(r'\],\[', inner_str) 
+    row_strings = re.split(r'\],\[', inner_str)
 
     parsed_rows = []
     for row_str in row_strings:
-        symbol_list = _split_balanced_args(row_str) 
-        
+        symbol_list = _split_balanced_args(row_str)
+
         parsed_row = []
         for symbol in symbol_list:
-            if symbol in ROM_VAL_MAP:
+            symbol = symbol.strip()
+
+            if symbol == '?':
+                parsed_row.append(_WILDCARD_VALUE)
+            elif symbol in ROM_VAL_MAP:
                 parsed_row.append(ROM_VAL_MAP[symbol])
+            elif symbol.isdigit() or (symbol.startswith('-') and symbol[1:].isdigit()):
+                parsed_row.append(int(symbol))
             else:
                 raise ValueError(f"Unknown symbolic color value: '{symbol}' in grid literal.")
         parsed_rows.append(parsed_row)
 
     if not parsed_rows:
-        return np.array([], dtype=int).reshape(0, 0) # Handle empty grid
-    
+        return np.array([], dtype=int).reshape(0, 0)
+
     first_row_len = len(parsed_rows[0])
     for i, row in enumerate(parsed_rows):
         if len(row) != first_row_len:
@@ -158,13 +165,6 @@ def  roman_to_int(s: str) -> int:
     if val is None:
         raise ValueError(f"Invalid or out-of-range Roman numeral: {s}. Max supported is XXX.")
     return val
-
-_SAFE_EVAL_GLOBALS = {"np": np}
-_SAFE_EVAL_LOCALS = {}
-
-
-ROMAN_INDEX_PATTERN = r"(?:I|II|III|IV|V|VI|VII|VIII|IX|X)"
-ROMAN_VALUE_PATTERN = r"(?:I|II|III|IV|V|VI|VII|VIII|IX|X|∅)"
 
 
 SYMBOL_RULES = {
@@ -460,14 +460,29 @@ SYMBOL_RULES = {
     },
     "binarize": {
         "pattern": r"^ⓑ\((?P<cmd_str>.+)\)$",
-        "op_name": "Binarize", # Maps to the Binarize Python class
+        "op_name": "Binarize",
         "transform_params": lambda m: {
             "cmd_str": m["cmd_str"]
         },
         "nested_commands": {
             "cmd": "cmd_str"
         }
-    }
+    },
+    "locate_pattern": {
+        "pattern": r"^⌖\((?P<all_commands_str>.+)\)$",
+        "transform_params": lambda m: (
+            parts := _split_balanced_args(m["all_commands_str"], num_args=2),
+            {
+                "grid_to_search_cmd_str": parts[0],
+                "pattern_to_find_cmd_str": parts[1]
+            }
+        )[1],
+        "nested_commands": {
+            "grid_to_search_cmd": "grid_to_search_cmd_str",
+            "pattern_to_find_cmd": "pattern_to_find_cmd_str"
+        },
+        "target_op_name": "locate_pattern"
+    },
 }
 
 

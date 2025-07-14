@@ -5,6 +5,7 @@ import cv2
 from typing import List, Optional, Dict, Any, Tuple, Union, Iterator
 from assets.symbols import ROM_VAL_MAP , INT_VAL_MAP
 
+
 class AbstractTransformationCommand(ABC):
     """
     Base class for all transformation commands.
@@ -1379,7 +1380,7 @@ class MaskOr(AbstractTransformationCommand):
 class MaskAnd(AbstractTransformationCommand):
     synthesis_rules = {
         "type": "combinator",
-        "arity": 2, # Takes two commands as arguments
+        "arity": 2, 
         "requires_inner": False,
         "parameter_ranges": {}
     }
@@ -1397,7 +1398,6 @@ class MaskAnd(AbstractTransformationCommand):
         mask1 = self.mask_cmd1.execute(input_grid)
         mask2 = self.mask_cmd2.execute(input_grid)
 
-        # Convert to binary before performing AND, for consistent logical operation
         binary_mask1 = (mask1 != 0).astype(int)
         binary_mask2 = (mask2 != 0).astype(int)
 
@@ -1405,7 +1405,6 @@ class MaskAnd(AbstractTransformationCommand):
             self.logger.warning(f"Shape mismatch: Mask1 {binary_mask1.shape}, Mask2 {binary_mask2.shape}. Both must match for element-wise AND.")
             raise ValueError("Shape mismatch in MaskAnd: Masks must have same shape.")
 
-        # For binary (0s and 1s) masks, multiplication acts as logical AND
         return (binary_mask1 * binary_mask2).astype(int)
 
     @classmethod
@@ -1446,4 +1445,120 @@ class Binarize(AbstractTransformationCommand):
             Any non-zero value in the input grid is converted to 1 (True),
             and any 0 value is converted to 0 (False).
             This is useful for explicitly creating a mask from any grid.
+        """
+        
+class LocatePattern(AbstractTransformationCommand):
+    """
+    Locates instances of a specified pattern within a grid and returns a binary mask
+    where matching regions are marked with 1s.
+    The wildcard symbol '?' in the pattern matches any color.
+    """
+    
+    _WILDCARD_VALUE = -1 
+
+    synthesis_rules = {
+        "type": "combinator",
+        "arity": 2,
+        "parameter_ranges": {}
+    }
+
+    def __init__(
+        self,
+        grid_to_search_cmd: AbstractTransformationCommand,
+        pattern_to_find_cmd: AbstractTransformationCommand,
+        logger: logging.Logger = None
+    ):
+        super().__init__(logger)
+        self.grid_to_search_cmd = grid_to_search_cmd
+        self.pattern_to_find_cmd = pattern_to_find_cmd
+
+    def get_children_commands(self) -> Iterator['AbstractTransformationCommand']:
+        yield self.grid_to_search_cmd
+        yield self.pattern_to_find_cmd
+
+    def _is_match(self, subgrid: np.ndarray, pattern_grid: np.ndarray) -> bool:
+        """
+        Helper method to check if a subgrid matches the pattern_grid,
+        considering WILDCARD_VALUE as a wildcard.
+        """
+
+        if subgrid.shape != pattern_grid.shape:
+            return False
+
+        # Iterate element-wise to compare
+        for r in range(pattern_grid.shape[0]):
+            for c in range(pattern_grid.shape[1]):
+                pattern_val = pattern_grid[r, c]
+                subgrid_val = subgrid[r, c]
+
+                if pattern_val == self._WILDCARD_VALUE:
+                    continue
+                elif pattern_val != subgrid_val:
+                    return False
+        return True # All cells matched
+
+    def execute(self, input_grid: np.ndarray) -> np.ndarray:
+        self.logger.debug("Executing LocatePattern command.")
+        
+        main_grid = self.grid_to_search_cmd.execute(input_grid)
+        pattern_grid = self.pattern_to_find_cmd.execute(input_grid) 
+
+        mh, mw = main_grid.shape
+        ph, pw = pattern_grid.shape
+
+        if ph > mh or pw > mw:
+            self.logger.debug("Pattern is larger than the main grid. No matches possible.")
+            return np.zeros_like(main_grid, dtype=int)
+        
+        if ph == 0 or pw == 0:
+            self.logger.debug("Pattern grid is empty. No matches possible.")
+            return np.zeros_like(main_grid, dtype=int)
+
+        result_mask = np.zeros_like(main_grid, dtype=int)
+
+        for r_main in range(mh - ph + 1):
+            for c_main in range(mw - pw + 1):
+                subgrid = main_grid[r_main : r_main + ph, c_main : c_main + pw]
+                
+                if self._is_match(subgrid, pattern_grid):
+                    self.logger.debug(f"Pattern match found at ({r_main}, {c_main}).")
+                    result_mask[r_main : r_main + ph, c_main : c_main + pw] = 1
+
+        self.logger.debug("LocatePattern execution complete.")
+        return result_mask
+
+    @classmethod
+    def describe(cls) -> str:
+        return """
+            Locates instances of a specified pattern within a grid and returns a binary mask.
+            The mask contains 1s where the pattern is found and 0s elsewhere.
+            If multiple matches are found, their masks are merged (logical OR).
+
+            Parameters:
+            - grid_to_search_cmd: A command that evaluates to the grid to search within.
+            - pattern_to_find_cmd: A command that evaluates to the pattern grid to find.
+              The '?' symbol in the pattern (which should be translated to -1 internally)
+              acts as a wildcard, matching any color.
+
+            Example:
+            Input Grid (main_grid):
+            [[0,0,0,0,0],
+             [0,1,1,1,0],
+             [0,1,2,1,0],
+             [0,1,1,1,0],
+             [0,0,0,0,0]]
+
+            Pattern (from pattern_to_find_cmd, e.g., ▦(III,III,[[?,I,?],[I,?,I],[?,I,?]])):
+            [[ -1, 1, -1],
+             [  1,-1,  1],
+             [ -1, 1, -1]]  (where -1 is the internal WILDCARD_VALUE for '?')
+
+            Command: ⌖(⌂, ▦(III,III,[[?,I,?],[I,?,I],[?,I,?]]))
+
+            Output Mask:
+            [[0,0,0,0,0],
+             [0,1,1,1,0],
+             [0,1,1,1,0],
+             [0,1,1,1,0],
+             [0,0,0,0,0]]
         """
