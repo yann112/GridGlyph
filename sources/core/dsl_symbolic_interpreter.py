@@ -406,9 +406,9 @@ SYMBOL_RULES = {
         'transform_params': lambda m: {
             "full_params_str": m["full_params_str"]
         },
-        'nested_commands': {}, # Remove specific nested_commands here, they will be parsed in the processor
+        'nested_commands': {},
         'param_processors': {
-            'full_params': '_process_match_pattern_full_params' # New processor function
+            'full_params': '_process_match_pattern_full_params'
         }
     },
     "filter_grid_by_color": {
