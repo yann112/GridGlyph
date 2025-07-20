@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 import logging
-from typing import Optional
+from typing import Optional, Union
 
 from core.dsl_symbolic_interpreter import SymbolicRuleParser, roman_to_int
 from core.dsl_symbolic_executor import DSLExecutor
@@ -87,21 +87,21 @@ TEST_CASES = [
     ("⊡(I,III)", np.array([[1, 2, 3, 4], [5, 6, 7, 8]]), np.array([[3]])),
     ("⊡(II,I)", np.array([[1, 2], [3, 4]]), np.array([[3]])),
 
-    ("↱I", None, np.array([[1]], dtype=int)), # Added dtype
-    ("↱∅", None, np.array([[0]], dtype=int)), # Added dtype
-    ("↱X", None, np.array([[10]], dtype=int)), # Added dtype
+    ("↱I", None, 1),
+    ("↱∅", None, 0),
+    ("↱X", None, 10),
 
     ("≡(⊡(II,II), ⊡(I,I))", np.array([[1, 2], [1, 1]]), np.array([[1]])),
     ("≡(⊡(II,II), ⊡(I,I))", np.array([[1, 2], [3, 4]]), np.array([[0]])),
-    ("≡(↱I, ⊡(I,I))", tiny_grid_1x1_val1, np.array([[1]])),
+    ("≡(⊕(I,I,I), ⊡(I,I))", tiny_grid_1x1_val1, np.array([[1]])),
 
     ("≗(↔, ↢)", np.array([[1, 2], [3, 4]]), np.array([[1]])),
     ("≗(⬒(II), ◨(II))", tiny_grid_1x1_val1, np.array([[0]])),
     ("≗(⬒(II), ⬒(II))", np.array([[1, 2]]), np.array([[1]])),
 
-    ("⍰(≡(↱V,↱V), ↔, ↕)", np.array([[1, 2], [3, 4]]), np.array([[2, 1], [4, 3]])),
-    ("⍰(≡(↱V,↱X), ↔, ↕)", np.array([[1, 2], [3, 4]]), np.array([[3, 4], [1, 2]])),
-    ("⍰(≡(↱∅, ↱I), Ⳁ, ⤨(II))", tiny_grid_1x1_val1, np.array([[1, 1], [1, 1]])),
+    ("⍰(≡(⊕(I,I,V), ⊕(I,I,V)), ↔, ↕)", np.array([[1, 2], [3, 4]]), np.array([[2, 1], [4, 3]])),
+    ("⍰(≡(⊕(I,I,V), ⊕(I,I,X)), ↔, ↕)", np.array([[1, 2], [3, 4]]), np.array([[3, 4], [1, 2]])),
+    ("⍰(≡(⊕(I,I,∅), ⊕(I,I,I)), Ⳁ, ⤨(II))", tiny_grid_1x1_val1, np.array([[1, 1], [1, 1]])),
 
     # --- Corrected ▦ test cases ---
     ("▦(I,I,[[I]])", None, np.array([[1]], dtype=int)),
@@ -126,7 +126,7 @@ TEST_CASES = [
     ], dtype=int)),
     # --- End of corrected ▦ test cases ---
 
-    ("⧎(↱I, ↱I, ↱∅)", None, np.array([[1]])),
+    ("⧎(⊕(I,I,I), ⊕(I,I,I), ⊕(I,I,∅))", None, np.array([[1]])),
     ("⧎(⊕(II,II,V), ▦(II,II,[[I,∅],[∅,I]]), ⊕(II,II,I))", None, np.array([[5, 1], [1, 5]])),
     ("⧎(Ⳁ, ⊕(II,II,∅), ⊕(II,II,X))", np.array([[1, 2], [3, 4]]), np.array([[10, 10], [10, 10]])),
 
@@ -183,9 +183,9 @@ TEST_CASES = [
     ("⇌(↔, ↕)", common_input_grid, np.array([[3, 2, 1], [4, 5, 6], [9, 8, 7]], dtype=int)),
     ("⇌(↢, Ⳁ)", common_input_grid, np.array([[3, 2, 1], [4, 5, 6], [9, 8, 7]], dtype=int)),
     ("⇌(⇒(I,∅), ↢)", asymmetric_grid, np.array([[0, 2, 0], [0, 4, 3], [0, 0, 0]], dtype=int)),
-    ("¿(↔, ≗(↱I, ↱I))", common_input_grid, np.fliplr(common_input_grid)),
-    ("¿(↔, ≗(⊡(I,I), ↱I))", common_input_grid, np.fliplr(common_input_grid)), 
-    ("¿(↔, ≗(⊡(I,I), ↱V))", common_input_grid, common_input_grid),
+    ("¿(↔, ≗(⊕(I,I,I), ⊕(I,I,I)))", common_input_grid, np.fliplr(common_input_grid)),
+    ("¿(↔, ≗(⊡(I,I), ⊕(I,I,I)))", common_input_grid, np.fliplr(common_input_grid)), 
+    ("¿(↔, ≗(⊡(I,I), ⊕(I,I,V)))", common_input_grid, common_input_grid),
     ("¿(↢, ≗(⌂, Ⳁ))", common_input_grid, np.flip(common_input_grid, axis=1)),
     ("¿(↢, ≗(⌂, ↔(⌂)))", asymmetric_grid, asymmetric_grid),
     ("◫(⌂, [(⊕(I,I,I), ↢)], Ⳁ)", tiny_grid_1x1_val1, tiny_grid_1x1_val1),
@@ -228,24 +228,23 @@ TEST_CASES = [
         [1,1,1,1,1,1]
     ])),
     ("⟹(⏚(∅), ⟹(⟹(⇒(∅, X), ⇒(I, ∅)), ⇒(X, I)))", np.array([[0,0,0,0,0],[0,5,5,5,0],[0,5,0,5,0],[0,5,5,5,0],[0,0,0,0,0]], dtype=int), np.array([[0,0,0,0,0],[0,1,1,1,0],[0,1,1,1,0],[0,1,1,1,0],[0,0,0,0,0]], dtype=int)),
-    ("¬(↱I)", None, np.array([[0]], dtype=int)),
-    ("¬(↱∅)", None, np.array([[1]], dtype=int)),
+    ("¬(⊕(I,I,I))", None, np.array([[0]], dtype=int)),
+    ("¬(⊕(I,I,∅))", None, np.array([[1]], dtype=int)),
     ("¬(⊕(II,II,I))", None, np.array([[0, 0], [0, 0]], dtype=int)),
     ("¬(⊕(II,II,∅))", None, np.array([[1, 1], [1, 1]], dtype=int)),
     ("¬(▦(II,II,[[I,∅],[∅,I]]))", None, np.array([[0, 1], [1, 0]], dtype=int)),
     ("¬(⟹(◎(V), ⇒(V,I)))", np.array([[1, 5], [5, 1]], dtype=int), np.array([[1, 0], [0, 1]], dtype=int)),
     ("¬(⟹(◎(I), ⇒(I,I)))", np.array([[1, 5], [5, 1]], dtype=int), np.array([[0, 1], [1, 0]], dtype=int)),
-    ("∧(↱I, ↱I)", None, np.array([[1]], dtype=int)),
-    ("∧(↱I, ↱∅)", None, np.array([[0]], dtype=int)),
-    ("∧(↱∅, ↱∅)", None, np.array([[0]], dtype=int)),
+    ("∧(⊕(I,I,I), ⊕(I,I,I))", None, np.array([[1]], dtype=int)),
+    ("∧(⊕(I,I,I), ⊕(I,I,∅))", None, np.array([[0]], dtype=int)),
     ("∧(⊕(II,II,I), ⊕(II,II,∅))", None, np.array([[0, 0], [0, 0]], dtype=int)),
     ("∧(⊕(II,II,I), ▦(II,II,[[I,∅],[∅,I]]))", None, np.array([[1, 0], [0, 1]], dtype=int)),
     ("∧(▦(II,II,[[I,∅],[∅,I]]), ▦(II,II,[[I,∅],[I,∅]]))", None, np.array([[1, 0], [0, 0]], dtype=int)),
     ("∧(⟹(◎(I), ⇒(I,I)), ⟹(◎(V), ⇒(V,I)))", np.array([[1, 5], [5, 1]], dtype=int), np.array([[0, 0], [0, 0]], dtype=int)),
     ("∧(⟹(◎(I), ⇒(I,I)), ⟹(◎(I), ⇒(I,I)))", np.array([[1, 5], [5, 1]], dtype=int), np.array([[1, 0], [0, 1]], dtype=int)),
-    ("∨(↱I, ↱I)", None, np.array([[1]], dtype=int)),
-    ("∨(↱I, ↱∅)", None, np.array([[1]], dtype=int)),
-    ("∨(↱∅, ↱∅)", None, np.array([[0]], dtype=int)),
+    ("∨(⊕(I,I,I), ⊕(I,I,I))", None, np.array([[1]], dtype=int)),
+    ("∨(⊕(I,I,I), ⊕(I,I,∅))", None, np.array([[1]], dtype=int)),
+    ("∨(⊕(I,I,∅), ⊕(I,I,∅))", None, np.array([[0]], dtype=int)),
     ("∨(⊕(II,II,I), ⊕(II,II,∅))", None, np.array([[1, 1], [1, 1]], dtype=int)),
     ("∨(⊕(II,II,∅), ▦(II,II,[[I,∅],[∅,I]]))", None, np.array([[1, 0], [0, 1]], dtype=int)),
     ("∨(▦(II,II,[[I,∅],[∅,I]]), ▦(II,II,[[I,∅],[I,∅]]))", None, np.array([[1, 0], [1, 1]], dtype=int)),
@@ -299,9 +298,9 @@ TEST_CASES = [
     ("⧎(⌂,∨(⏚(∅),ⓑ(◎(III))),⟹(∨(⏚(∅),ⓑ(◎(III))),⟹(⇒(∅,IV),⇒(I,∅))))",
      np.array([[0,0,0,0,0],[0,3,3,3,0],[0,3,0,3,0],[0,3,3,3,0],[0,0,0,0,0]], dtype=int),
      np.array([[0,0,0,0,0],[0,3,3,3,0],[0,3,4,3,0],[0,3,3,3,0],[0,0,0,0,0]], dtype=int)),
-    ("⌖(↱V, ↱V)", None, np.array([[1]], dtype=int)),
-    ("⌖(⊕(II,II,I), ↱I)", None, np.array([[1,1],[1,1]], dtype=int)),
-    ("⌖(⊕(II,II,I), ↱V)", None, np.array([[0,0],[0,0]], dtype=int)),
+    ("⌖(⊕(I,I,V), ⊕(I,I,V))", None, np.array([[1]], dtype=int)),
+    ("⌖(⊕(II,II,I), ⊕(I,I,I))", None, np.array([[1,1],[1,1]], dtype=int)),
+    ("⌖(⊕(II,II,I), ⊕(I,I,V))", None, np.array([[0,0],[0,0]], dtype=int)),
     ("⌖(⊕(III,III,I), ▦(II,II,[[I,I],[I,I]]))", None, np.array([[1,1,1],[1,1,1],[1,1,1]], dtype=int)),
     ("⌖(⊕(III,III,I), ▦(II,II,[[?,?],[?,?]]))", None, np.array([[1,1,1],[1,1,1],[1,1,1]], dtype=int)),
     ("⌖(⊕(III,III,I), ▦(II,II,[[I,?],[?,I]]))", None, np.array([[1,1,1],[1,1,1],[1,1,1]], dtype=int)),
@@ -381,6 +380,34 @@ TEST_CASES = [
     ("⊞(⊕(II,II,∅), ⊕(II,II,I), ∅, -I)", np.array([[0,0],[0,0]], dtype=int), np.array([[1,0],[1,0]], dtype=int)),
     ("⊕(IX, III, ∅)", None, np.array([[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]], dtype=int)),
     ("⊞(⊕(IX, III, ∅), ⌂, ∅, ∅)", np.array([[0, 1, 0], [1, 1, 0], [0, 1, 0], [0, 1, 1], [0, 1, 0], [1, 1, 0]], dtype=int), np.array([[0, 1, 0], [1, 1, 0], [0, 1, 0], [0, 1, 1], [0, 1, 0], [1, 1, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]], dtype=int)),
+    ("⧈(⌂)", np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 2, 2, 2, 0, 0, 0, 0], [0, 0, 2, 0, 0, 2, 0, 0, 0], [0, 0, 0, 2, 2, 2, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0]], dtype=int), np.array([[2, 2, 2, 0], [2, 0, 0, 2], [0, 2, 2, 2]], dtype=int)),
+    ("⊞(⊕(V,IX,∅), ◎(II), ∅, -I)", np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 0, 2, 2, 2, 0, 0, 0, 0], [0, 0, 2, 0, 0, 2, 0, 0, 0], [0, 0, 0, 2, 2, 2, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0]], dtype=int), np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0], [0, 2, 2, 2, 0, 0, 0, 0, 0], [0, 2, 0, 0, 2, 0, 0, 0, 0], [0, 0, 2, 2, 2, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0]], dtype=int)),
+    ("⚇(I, I)", np.array([[1,1,0,1,0],[1,1,0,0,0],[0,0,0,0,0]], dtype=int), np.array([[1,1,0,0,0],[1,1,0,0,0],[0,0,0,0,0]], dtype=int)),
+    ("⚇(I, I)", np.array([[1,1,0,1,0],[1,1,0,0,0],[0,0,0,0,0]], dtype=int), np.array([[1,1,0,0,0],[1,1,0,0,0],[0,0,0,0,0]], dtype=int)),
+    ("⚇(II, II)", np.array([[0,1,0,0,0],[0,1,1,0,1],[0,0,0,0,1]], dtype=int), np.array([[0,1,0,0,0],[0,1,1,0,0],[0,0,0,0,0]], dtype=int)),
+    ("⚇(I, IV)", np.array([[1,1,0,2,2],[1,0,0,2,0],[0,0,3,3,3]], dtype=int), np.array([[0,0,0,2,2],[0,0,0,2,0],[0,0,0,0,0]], dtype=int)),
+    ("⚇(I, III)", np.array([[0,1,0,0,0],[0,1,1,0,1],[0,0,0,0,1]], dtype=int), np.array([[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0]], dtype=int)),
+    ("⚇(II, II)", np.array([[0,0,0,0,0],[0,1,0,0,0],[1,1,1,0,0],[0,1,0,0,0],[0,0,0,0,0]], dtype=int), np.array([[0,0,0,0,0],[0,1,0,0,0],[1,1,1,0,0],[0,1,0,0,0],[0,0,0,0,0]], dtype=int)),
+    ("⚇(I, I)", np.array([[1,1,0,1,0],[1,1,0,0,0],[0,0,0,0,0]], dtype=int), np.array([[1,1,0,0,0],[1,1,0,0,0],[0,0,0,0,0]], dtype=int)),
+    ("⚇(II, II)", np.array([[0,1,0,0,0],[0,1,1,0,1],[0,0,0,0,1]], dtype=int), np.array([[0,1,0,0,0],[0,1,1,0,0],[0,0,0,0,0]], dtype=int)),
+    ("⚇(I, IV)", np.array([[1,1,0,2,2],[1,0,0,2,0],[0,0,3,3,3]], dtype=int), np.array([[0,0,0,2,2],[0,0,0,2,0],[0,0,0,0,0]], dtype=int)),
+    ("⚇(I, III)", np.array([[0,1,0,0,0],[0,1,1,0,1],[0,0,0,0,1]], dtype=int), np.array([[0,0,0,0,0],[0,0,0,0,0],[0,0,0,0,0]], dtype=int)),
+    ("⚇(II, II)", np.array([[0,0,0,0,0],[0,1,0,0,0],[1,1,1,0,0],[0,1,0,0,0],[0,0,0,0,0]], dtype=int), np.array([[0,0,0,0,0],[0,1,0,0,0],[1,1,1,0,0],[0,1,0,0,0],[0,0,0,0,0]], dtype=int)),
+    ("⚇(II,II)", np.array([[0,0,0,0,0],[0,1,1,0,0],[0,1,0,2,0],[0,0,0,0,0]], dtype=int), np.array([[0,0,0,0,0],[0,1,1,0,0],[0,1,0,0,0],[0,0,0,0,0]], dtype=int)),
+    ("⚇(III,V)", np.array([[1,1,0,0,0],[0,1,0,2,2],[0,0,0,3,3],[0,0,0,0,3]], dtype=int), np.array([[0,0,0,0,0],[0,0,0,0,0],[0,0,0,3,3],[0,0,0,0,3]], dtype=int)),
+    ("⊞(⌂, ⚇(II,II), ∅, II)", np.array([[0,0,0,0,0,0,0,0,0],[0,2,2,0,0,0,0,0,0],[0,2,2,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0],[0,0,0,0,2,2,0,0,0],[0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,2,0,0]], dtype=int), np.array([[0,0,0,0,0,0,0,0,0],[0,2,2,2,2,0,0,0,0],[0,2,2,2,2,0,0,0,0],[0,0,0,0,0,0,0,0,0],[0,0,0,0,2,2,0,0,0],[0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,2,0,0]], dtype=int)),
+    ("⊞(⌂, ⚇(I,I), ∅, ∅)", np.array([[5, 6, 7], [8, 9, 0], [1, 2, 3]], dtype=int), np.array([[5, 6, 7], [8, 9, 0], [1, 2, 3]], dtype=int)),
+    ("⊞(⌂, ⚇(II,II), ∅, ∅)", np.array([[7,7,7],[7,1,7],[7,7,7]], dtype=int), np.array([[7,7,7],[7,1,7],[7,7,7]], dtype=int)),
+    ("⊞(⌂, ⚇(II,II), I, I)", np.array([[5,5,5,5],[5,1,1,5],[5,1,1,5],[5,5,5,5]], dtype=int), np.array([[5,5,5,5],[5,1,1,5],[5,1,1,1],[5,5,1,1]], dtype=int)),
+    ("⊞(⌂, ⚇(IV,V), ∅, II)", np.array([[0,0,2,2,0,0,0,0,0],[0,0,2,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0],[0,0,0,0,2,0,0,0,0]], dtype=int), np.array([[0,0,2,2,0,0,0,0,0],[0,0,2,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0],[0,0,0,0,2,0,2,0,0]], dtype=int)),
+    ("│(⌂)", np.array([[1,2,3,4,5],[6,7,8,9,0],[1,2,3,4,5]], dtype=int), 3),
+    ("─(⌂)", np.array([[1,2,3,4,5],[6,7,8,9,0],[1,2,3,4,5]], dtype=int), 5),
+    ("│(⌂)", np.array([[1],[2],[3],[4],[5],[6]], dtype=int), 6),
+    ("─(⌂)", np.array([[1,1,1,1,1,1,1]], dtype=int), 7),
+    ("⊕(│(⌂), ─(⌂), ∅)", np.array([[1,2],[3,4],[5,6]], dtype=int), np.array([[0,0],[0,0],[0,0]], dtype=int)),
+    ("⊕(│(⌂),↱V, I)", np.array([[1,2,3],[4,5,6]], dtype=int), np.array([[1,1,1,1,1],[1,1,1,1,1]], dtype=int)),
+    ("⊕(↱III, ─(⌂), II)", np.array([[1,1],[2,2],[3,3],[4,4]], dtype=int), np.array([[2,2],[2,2],[2,2]], dtype=int)),
+    ("⊕(│(⌂), ─(⌂), IX)", np.array([[5]], dtype=int), np.array([[9]], dtype=int)),
 
 ]
 
@@ -393,13 +420,14 @@ def test_logger() -> logging.Logger:
     return logging.getLogger(__name__)
 
 
-@pytest.mark.parametrize("rule, initial_input_grid, expected_output_grid", TEST_CASES)
+
+@pytest.mark.parametrize("rule, initial_input_grid, expected_output", TEST_CASES)
 def test_dsl_executor_execution(
     parser: SymbolicRuleParser,
     test_logger: logging.Logger,
     rule: str,
     initial_input_grid: Optional[np.ndarray],
-    expected_output_grid: np.ndarray
+    expected_output: Union[np.ndarray, int] # Changed type hint to accept both
 ):
     try:
         parsed_command_tree = parser.parse_rule(rule)
@@ -417,20 +445,23 @@ def test_dsl_executor_execution(
         )
         test_logger.info("Executor instantiated and initialized commands.")
 
-        result_grid = executor.execute_program()
+        result = executor.execute_program()
         test_logger.info(f"Execution complete for rule: '{rule}'")
 
-        assert result_grid.shape == expected_output_grid.shape, \
-            f"Shape mismatch for rule '{rule}': {result_grid.shape} vs {expected_output_grid.shape}"
-
-        if np.issubdtype(expected_output_grid.dtype, np.number):
-            assert np.array_equal(result_grid, expected_output_grid), \
-                f"Output mismatch for rule '{rule}'\nExpected:\n{expected_output_grid}\nGot:\n{result_grid}"
+        if isinstance(expected_output, np.ndarray):
+            assert isinstance(result, np.ndarray), \
+                f"Type mismatch for rule '{rule}': Expected np.ndarray, got {type(result)}"
+            assert result.shape == expected_output.shape, \
+                f"Shape mismatch for rule '{rule}': {result.shape} vs {expected_output.shape}"
+            assert np.array_equal(result, expected_output), \
+                f"Output mismatch for rule '{rule}'\nExpected:\n{expected_output}\nGot:\n{result}"
+        elif isinstance(expected_output, int):
+            assert isinstance(result, int), \
+                f"Type mismatch for rule '{rule}': Expected int, got {type(result)}"
+            assert result == expected_output, \
+                f"Output mismatch for rule '{rule}'\nExpected: {expected_output}\nGot: {result}"
         else:
-            assert all(
-                np.array_equal(r, e) if isinstance(r, np.ndarray) else r == e
-                for r, e in zip(result_grid.flatten(), expected_output_grid.flatten())
-            ), f"Output mismatch for rule '{rule}'\nExpected:\n{expected_output_grid}\nGot:\n{result_grid}"
+            pytest.fail(f"Invalid expected_output type in test case for rule '{rule}': {type(expected_output)}")
 
     except Exception as e:
         pytest.fail(f"Test failed for rule '{rule}': {str(e)}")

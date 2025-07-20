@@ -289,6 +289,19 @@ SYMBOL_RULES = {
             "fill_color": roman_to_int(m["fill_color"])
         }
     },
+    # Rule 2: Dimensions are command outputs (e.g., ⊕(│(⌂),─(⌂),∅))
+    "create_solid_color_grid_commands": {
+        "pattern": fr"^\s*⊕\((?P<rows_cmd_str>.+?),\s*(?P<cols_cmd_str>.+?),\s*(?P<fill_value_str>{ROMAN_VALUE_PATTERN}|∅|\?)\)\s*$",
+        "transform_params": lambda m: {
+            "rows": m["rows_cmd_str"],
+            "cols": m["cols_cmd_str"],
+            "fill_color": roman_to_int(m["fill_value_str"]),
+        },
+        "nested_commands": {
+            "rows": "rows",
+            "cols": "cols",
+        },
+    },
     "scale_grid": {
         "pattern": fr"^⤨\((?P<factor>{ROMAN_VALUE_PATTERN})\)$",
         "transform_params": lambda m: {
@@ -535,7 +548,36 @@ SYMBOL_RULES = {
             "source_grid_command": "source_grid_cmd_str",
         },
     },
-    
+    "get_connected_component": {
+        "symbol": "⚇",
+        "pattern": fr"^\s*⚇\((?P<row_str>{ROMAN_INDEX_PATTERN}),\s*(?P<col_str>{ROMAN_INDEX_PATTERN})\)\s*$",
+        "transform_params": lambda m: {
+            "row_index": roman_to_int(m["row_str"]),
+            "col_index": roman_to_int(m["col_str"]),
+        },
+        "nested_commands": {},
+        "description": "Returns a new grid containing only the connected component found at the specified (1-based) row and column.",
+    },
+        "get_grid_height": {
+        "pattern": r"^\s*│\((?P<target_grid_str>.+)\)\s*$", 
+        "op_name": "GetGridHeight",
+        "transform_params": lambda m: {
+            "target_grid_command": m["target_grid_str"]
+        },
+        "nested_commands": {
+            "target_grid_command": "target_grid_command",
+        },
+    },
+    "get_grid_width": {
+        "pattern": r"^\s*─\((?P<target_grid_str>.+)\)\s*$",
+        "op_name": "GetGridWidth",
+        "transform_params": lambda m: {
+            "target_grid_command": m["target_grid_str"]
+        },
+        "nested_commands": {
+            "target_grid_command": "target_grid_command",
+        },
+    },
 }
 
 

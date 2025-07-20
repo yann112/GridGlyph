@@ -19,6 +19,7 @@ class TransformationFactory:
         'shift_row_or_column': ShiftRowOrColumn,
         'sequence': Sequence,
         'create_solid_color_grid': CreateSolidColorGrid,
+        'create_solid_color_grid_commands': CreateSolidColorGrid,  # Use command instead of building from roman number
         'repeat_grid_horizontal': lambda **kwargs: RepeatGrid(
                 inner_command=Identity(),
                 horizontal_repeats=kwargs.get("horizontal_repeats"),
@@ -50,6 +51,9 @@ class TransformationFactory:
         'slice_grid': SliceGrid,
         'fill_region': FillRegion,
         'add_grid_to_canvas': AddGridToCanvas,
+        "get_connected_component": GetConnectedComponent,
+        "get_grid_height": GetGridHeight,
+        "get_grid_width": GetGridWidth,
 }
 
     @classmethod

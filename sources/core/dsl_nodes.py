@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 import logging
 import numpy as np
 import cv2
+from collections import deque
 from typing import List, Optional, Dict, Any, Tuple, Union, Iterator
 from assets.symbols import ROM_VAL_MAP , INT_VAL_MAP
 
@@ -665,30 +666,60 @@ class CreateSolidColorGrid(AbstractTransformationCommand):
         }
     }
 
-    def __init__(self, rows: int, cols: int, fill_color: int, logger: Optional[logging.Logger] = None):
+    def __init__(self,
+                 rows: Union[int, AbstractTransformationCommand],
+                 cols: Union[int, AbstractTransformationCommand],
+                 fill_color: int,
+                 logger: Optional[logging.Logger] = None):
         super().__init__(logger)
-        self.rows = rows
-        self.cols = cols
+        self.rows_arg = rows 
+        self.cols_arg = cols 
         self.fill_color = fill_color
 
     def execute(self, input_grid: np.ndarray = None) -> np.ndarray:
         """
         Creates a new grid of specified dimensions filled with a single color.
-        Note: input_grid is ignored as this command creates a new grid.
+        Resolves row/col commands if present.
         """
-        self.logger.debug(f"Executing CreateSolidColorGrid: {self.rows}x{self.cols} with color {self.fill_color}")
-        return np.full((self.rows, self.cols), self.fill_color, dtype=int)
+        self.logger.debug(f"Executing CreateSolidColorGrid: Resolving dimensions...")
+
+        resolved_rows = self.rows_arg.execute(input_grid) \
+                        if isinstance(self.rows_arg, AbstractTransformationCommand) \
+                        else self.rows_arg
+
+        resolved_cols = self.cols_arg.execute(input_grid) \
+                        if isinstance(self.cols_arg, AbstractTransformationCommand) \
+                        else self.cols_arg
+
+        if not (isinstance(resolved_rows, int) and resolved_rows >= 0):
+            self.logger.error(f"CreateSolidColorGrid received invalid resolved row dimension: {resolved_rows} (type {type(resolved_rows)})")
+            raise ValueError(f"CreateSolidColorGrid expects non-negative integer for rows, got {resolved_rows}")
+        if not (isinstance(resolved_cols, int) and resolved_cols >= 0):
+            self.logger.error(f"CreateSolidColorGrid received invalid resolved col dimension: {resolved_cols} (type {type(resolved_cols)})")
+            raise ValueError(f"CreateSolidColorGrid expects non-negative integer for cols, got {resolved_cols}")
+
+        self.logger.debug(f"Resolved dimensions: {resolved_rows}x{resolved_cols} with color {self.fill_color}")
+        return np.full((resolved_rows, resolved_cols), self.fill_color, dtype=int)
+
+    def get_children_commands(self) -> Iterator['AbstractTransformationCommand']:
+        """Yields any nested command arguments for context propagation."""
+        if isinstance(self.rows_arg, AbstractTransformationCommand):
+            yield self.rows_arg
+        if isinstance(self.cols_arg, AbstractTransformationCommand):
+            yield self.cols_arg
 
     @classmethod
     def describe(cls) -> str:
         return """
             Creates a new grid of specified dimensions filled with a single color.
+            Dimensions can be fixed integers or the output of other commands (e.g., GetGridHeight).
             Parameters:
-            - rows: The number of rows for the new grid.
-            - cols: The number of columns for the new grid.
+            - rows: The number of rows for the new grid, or a command yielding an integer.
+            - cols: The number of columns for the new grid, or a command yielding an integer.
             - fill_color: The color value to fill the grid with.
         """
         
+    
 class ScaleGrid(AbstractTransformationCommand):
     synthesis_rules = {
         "type": "atomic",
@@ -805,6 +836,20 @@ class ExtractBoundingBox(AbstractTransformationCommand):
             Can apply to the current input grid or the result of an argument command.
         """
 
+
+class GetConstant(AbstractTransformationCommand):
+    def __init__(self, value: int, logger: logging.Logger = None):
+        super().__init__(logger)
+        self.value = value
+
+    def execute(self, input_grid: np.ndarray) -> np.ndarray:
+        return self.value
+
+    @classmethod
+    def describe(cls) -> str:
+        return "Create a 1x1 grid with a specific constant value."
+    
+
 class FlattenGrid(AbstractTransformationCommand):
     synthesis_rules = {
         "type": "atomic",
@@ -876,11 +921,6 @@ class GetElement(AbstractTransformationCommand):
 
 
 class CompareEquality(AbstractTransformationCommand):
-    """
-    Compares two inputs for equality as single numerical values.
-    Inputs can be commands (producing 1x1 grids) or direct integer literals.
-    Returns a 1x1 grid containing 1 if the values are equal, otherwise returns 0.
-    """
     synthesis_rules = {
         "type": "combinator",
         "requires_inner": True,
@@ -901,37 +941,36 @@ class CompareEquality(AbstractTransformationCommand):
         if isinstance(self.command2, AbstractTransformationCommand):
             yield self.command2
 
-    def _get_scalar_from_arg(self, arg: Union[AbstractTransformationCommand, int], input_grid: np.ndarray) -> int:
-        """
-        Helper method to resolve an argument to a single integer scalar.
-        If it's a command, execute it and extract the single value from its 1x1 grid output.
-        If it's a literal int, return the int itself.
-        Raises ValueError if a command produces a multi-element grid.
-        """
-        if isinstance(arg, AbstractTransformationCommand):
-            result_grid = arg.execute(input_grid)
-            if result_grid.shape == (1, 1): # Ensure it's a 1x1 grid
-                return result_grid.item() # Extract the single integer value
-            else:
-                self.logger.error(f"Nested command '{str(arg)}' for scalar comparison returned grid of shape {result_grid.shape}, expected (1,1).")
-                raise ValueError("Scalar comparison argument must resolve to a single value.")
-        else: # It's already a literal integer
-            return arg
-
     def execute(self, input_grid: np.ndarray) -> np.ndarray:
-        """
-        Compares the resolved scalar values of command1 and command2.
-        Returns a 1x1 grid with 1 if equal, 0 if not equal.
-        """
         self.logger.debug(f"Executing CompareEquality command.")
         try:
-            # Resolve both arguments to single scalar integers
-            scalar_val1 = self._get_scalar_from_arg(self.command1, input_grid)
-            scalar_val2 = self._get_scalar_from_arg(self.command2, input_grid)
-
-            are_equal = (scalar_val1 == scalar_val2) # Direct Python scalar comparison
+            val1_resolved = self.command1.execute(input_grid) \
+                            if isinstance(self.command1, AbstractTransformationCommand) \
+                            else self.command1
             
-            self.logger.info(f"Comparison of {str(self.command1)} (resolved to: {scalar_val1}) and {str(self.command2)} (resolved to: {scalar_val2}) resulted in: {are_equal}")
+            val2_resolved = self.command2.execute(input_grid) \
+                            if isinstance(self.command2, AbstractTransformationCommand) \
+                            else self.command2
+
+            if isinstance(val1_resolved, np.ndarray) and val1_resolved.shape == (1,1):
+                val1 = int(val1_resolved[0,0])
+            elif isinstance(val1_resolved, int):
+                val1 = val1_resolved
+            else:
+                self.logger.error(f"CompareEquality: Unexpected type for command1 result: {type(val1_resolved)}")
+                raise TypeError(f"CompareEquality: Expected int or 1x1 np.ndarray for command1, got {type(val1_resolved)}.")
+
+            if isinstance(val2_resolved, np.ndarray) and val2_resolved.shape == (1,1):
+                val2 = int(val2_resolved[0,0])
+            elif isinstance(val2_resolved, int):
+                val2 = val2_resolved
+            else:
+                self.logger.error(f"CompareEquality: Unexpected type for command2 result: {type(val2_resolved)}")
+                raise TypeError(f"CompareEquality: Expected int or 1x1 np.ndarray for command2, got {type(val2_resolved)}.")
+            
+            are_equal = (val1 == val2)
+            
+            self.logger.info(f"Comparison of {str(self.command1)} (resolved to: {val1}) and {str(self.command2)} (resolved to: {val2}) resulted in: {are_equal}")
             return np.array([[1 if are_equal else 0]], dtype=int)
         except Exception as e:
             self.logger.error(f"Error executing CompareEquality command: {e}", exc_info=True)
@@ -940,19 +979,6 @@ class CompareEquality(AbstractTransformationCommand):
     @classmethod
     def describe(cls) -> str:
         return "Compares two inputs for scalar equality."
-    
-class GetConstant(AbstractTransformationCommand):
-    def __init__(self, value: int, logger: logging.Logger = None):
-        super().__init__(logger)
-        self.value = value
-
-    def execute(self, input_grid: np.ndarray) -> np.ndarray:
-        output_grid = np.array([[self.value]], dtype=int)
-        return output_grid
-
-    @classmethod
-    def describe(cls) -> str:
-        return "Create a 1x1 grid with a specific constant value."
     
 class CompareGridEquality(AbstractTransformationCommand):
     """
@@ -1029,10 +1055,9 @@ class IfElseCondition(AbstractTransformationCommand):
         "parameter_ranges": {}
     }
 
-    # MODIFIED: Ensure parameter names match the 'nested_commands' keys from SYMBOL_RULES
-    def __init__(self, condition: Any,           # This will be the parsed condition command/literal
-                 true_branch: AbstractTransformationCommand, # This will be the parsed true_branch command
-                 false_branch: AbstractTransformationCommand, # This will be the parsed false_branch command
+    def __init__(self, condition: Any, 
+                 true_branch: AbstractTransformationCommand,
+                 false_branch: AbstractTransformationCommand,
                  logger: logging.Logger = None):
         super().__init__(logger=logger)
         self.condition = condition
@@ -1043,14 +1068,13 @@ class IfElseCondition(AbstractTransformationCommand):
     def execute(self, input_grid: np.ndarray) -> np.ndarray:
         self.logger.debug(f"Executing IfElseCondition.")
         try:
-            # The condition should resolve to a scalar (0 or 1)
             if isinstance(self.condition, AbstractTransformationCommand):
                 condition_result_grid = self.condition.execute(input_grid)
                 if condition_result_grid.shape != (1, 1):
                     self.logger.error(f"IfElseCondition: condition command returned a grid of shape {condition_result_grid.shape}, expected (1,1) for scalar comparison.")
                     raise ValueError("IfElseCondition condition must resolve to a single scalar value (1x1 grid).")
                 condition_value = condition_result_grid.item()
-            else: # If it's a literal integer (e.g., from ↱I)
+            else:
                 condition_value = self.condition
                 if not isinstance(condition_value, int) or (condition_value != 0 and condition_value != 1):
                      self.logger.warning(f"IfElseCondition: literal condition value is {condition_value}, expected 0 or 1.")
@@ -1306,7 +1330,7 @@ class MaskNot(AbstractTransformationCommand):
     synthesis_rules = {
         "type": "combinator",
         "arity": 1,
-        "requires_inner": False, # It takes one command as its sole parameter
+        "requires_inner": False,
         "parameter_ranges": {}
     }
 
@@ -1320,10 +1344,8 @@ class MaskNot(AbstractTransformationCommand):
     def execute(self, input_grid: np.ndarray) -> np.ndarray:
         mask = self.mask_cmd.execute(input_grid)
 
-        # Convert to binary before performing NOT, as per consistent logical operation
         binary_mask = (mask != 0).astype(int)
 
-        # Invert binary mask (0s to 1s, 1s to 0s)
         return (1 - binary_mask).astype(int)
 
     @classmethod
@@ -1356,7 +1378,6 @@ class MaskOr(AbstractTransformationCommand):
         mask1 = self.mask_cmd1.execute(input_grid)
         mask2 = self.mask_cmd2.execute(input_grid)
 
-        # Convert to binary before performing OR, for consistent logical operation
         binary_mask1 = (mask1 != 0).astype(int)
         binary_mask2 = (mask2 != 0).astype(int)
 
@@ -1364,7 +1385,6 @@ class MaskOr(AbstractTransformationCommand):
             self.logger.warning(f"Shape mismatch: Mask1 {binary_mask1.shape}, Mask2 {binary_mask2.shape}. Both must match for element-wise OR.")
             raise ValueError("Shape mismatch in MaskOr: Masks must have same shape.")
 
-        # Logical OR for binary masks (0s and 1s): sum and clip at 1
         return ((binary_mask1 + binary_mask2) > 0).astype(int)
 
     @classmethod
@@ -1656,12 +1676,15 @@ class FillRegion(AbstractTransformationCommand):
         }
     }
     
-    
+
 class AddGridToCanvas(AbstractTransformationCommand):
     """
     Adds a source_grid to a target_grid (canvas) at a specified (row, col) offset.
     The source_grid is cropped if it extends beyond the bounds of the target_grid.
     The left corner of the source_grid is used as the reference point for placement.
+    
+    Modified Behavior: Zeros in the source_grid do NOT overwrite values in the target_grid.
+    They act as a transparent background. Only non-zero values are copied over.
     """
 
     def __init__(self,
@@ -1687,36 +1710,37 @@ class AddGridToCanvas(AbstractTransformationCommand):
         target_rows, target_cols = target_grid.shape
         source_rows, source_cols = source_grid.shape
 
-        # Calculate the paste region in the target grid coordinates
-        # start_row_target, end_row_target: exclusive
-        # start_col_target, end_col_target: exclusive
         start_row_target = max(0, self.row_offset)
         end_row_target = min(target_rows, self.row_offset + source_rows)
         start_col_target = max(0, self.col_offset)
         end_col_target = min(target_cols, self.col_offset + source_cols)
 
-        # Calculate the corresponding region in the source grid coordinates for cropping
-        # start_row_source, end_row_source: exclusive
-        # start_col_source, end_col_source: exclusive
         start_row_source = max(0, -self.row_offset)
         end_row_source = min(source_rows, target_rows - self.row_offset)
         start_col_source = max(0, -self.col_offset)
         end_col_source = min(source_cols, target_cols - self.col_offset)
 
-        # Ensure the paste region is valid
         if start_row_target >= end_row_target or start_col_target >= end_col_target:
-            self.logger.warning(
-                f"Attempted to add a grid completely out of bounds at ({self.row_offset}, {self.col_offset}). "
-                f"Target grid: {target_grid.shape}, Source grid: {source_grid.shape}. Returning original target grid."
-            )
-            return target_grid.copy() # Return a copy to ensure immutability if the input was passed directly
+            if self.logger:
+                self.logger.warning(
+                    f"Attempted to add a grid completely out of bounds at ({self.row_offset}, {self.col_offset}). "
+                    f"Target grid: {target_grid.shape}, Source grid: {source_grid.shape}. Returning original target grid."
+                )
+            return target_grid.copy() 
 
-        # Create a copy of the target grid to modify
         result_grid = target_grid.copy()
 
-        # Perform the copy
-        result_grid[start_row_target:end_row_target, start_col_target:end_col_target] = \
-            source_grid[start_row_source:end_row_source, start_col_source:end_col_source]
+        for r_src_idx in range(end_row_source - start_row_source):
+            for c_src_idx in range(end_col_source - start_col_source):
+                r_src = start_row_source + r_src_idx
+                c_src = start_col_source + c_src_idx
+
+                val_from_source = source_grid[r_src, c_src]
+
+                if val_from_source != 0:
+                    r_target = start_row_target + r_src_idx
+                    c_target = start_col_target + c_src_idx
+                    result_grid[r_target, c_target] = val_from_source
 
         return result_grid
 
@@ -1726,7 +1750,7 @@ class AddGridToCanvas(AbstractTransformationCommand):
 
     @classmethod
     def describe(cls) -> str:
-        return "Adds a source grid to a target grid at an offset, cropping if out of bounds."
+        return "Adds a source grid to a target grid at an offset, with non-zero values overwriting."
 
     synthesis_rules = {
         "output_type": "grid",
@@ -1738,3 +1762,142 @@ class AddGridToCanvas(AbstractTransformationCommand):
             {"name": "col_offset", "type": "int"},
         ],
     }
+    
+    
+class GetConnectedComponent(AbstractTransformationCommand):
+    def __init__(self, row_index: int, col_index: int, logger=None):
+        super().__init__(logger)
+        self.row_index = row_index
+        self.col_index = col_index
+
+    def execute(self, input_grid: np.ndarray) -> np.ndarray:
+        np_row = self.row_index - 1
+        np_col = self.col_index - 1
+
+        if not (0 <= np_row < input_grid.shape[0] and 0 <= np_col < input_grid.shape[1]):
+            return np.zeros_like(input_grid)
+
+        start_pixel_value = input_grid[np_row, np_col]
+
+        if start_pixel_value == 0:
+            return np.zeros_like(input_grid)
+
+        component_grid = self._find_connected_component(
+            grid=input_grid,
+            start_row=np_row,
+            start_col=np_col,
+            target_value=start_pixel_value
+        )
+        return component_grid
+
+    def _find_connected_component(self, grid: np.ndarray, start_row: int, start_col: int, target_value: int) -> np.ndarray:
+        rows, cols = grid.shape
+        component_grid = np.zeros_like(grid, dtype=grid.dtype)
+        visited = np.zeros_like(grid, dtype=bool)
+
+        q = deque([(start_row, start_col)])
+        visited[start_row, start_col] = True
+        component_grid[start_row, start_col] = target_value
+
+        directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+
+        while q:
+            r, c = q.popleft()
+
+            for dr, dc in directions:
+                nr, nc = r + dr, c + dc
+                if (0 <= nr < rows and 0 <= nc < cols and
+                    grid[nr, nc] == target_value and not visited[nr, nc]):
+                    visited[nr, nc] = True
+                    component_grid[nr, nc] = target_value
+                    q.append((nr, nc))
+
+        return component_grid
+
+    def get_children_commands(self) -> Iterator[AbstractTransformationCommand]:
+        return iter([])
+
+    @classmethod
+    def describe(cls) -> str:
+        return "Extracts a 4-way connected component from a grid based on a starting position."
+
+    @property
+    def synthesis_rules(self) -> dict:
+        return {
+            "output_type": "grid",
+            "args": {
+                "row_index": {"type": "integer", "range": (1, 10)},
+                "col_index": {"type": "integer", "range": (1, 10)}
+            }
+        }
+        
+class GetGridHeight(AbstractTransformationCommand):
+    """
+    DSL Command: │(grid_source_command)
+    Returns the height (number of rows) of the grid produced by grid_source_command.
+    Outputs an integer.
+    """
+    def __init__(self,target_grid_command: AbstractTransformationCommand, logger: logging.Logger=None,):
+        super().__init__(logger)
+        self.target_grid_command = target_grid_command
+        self.logger.debug(f"Initialized GetGridHeight with source: {target_grid_command.describe()}")
+
+    def execute(self, input_grid: np.ndarray) -> int:
+        self.logger.debug(f"Executing GetGridHeight on grid_source_command.")
+        grid_to_measure = self.target_grid_command.execute(input_grid)
+        if not isinstance(grid_to_measure, np.ndarray):
+            self.logger.error(f"GetGridHeight expects a grid, but received {type(grid_to_measure)}")
+            raise TypeError(f"GetGridHeight expects a grid command output, but received {type(grid_to_measure)}")
+        height = grid_to_measure.shape[0]
+        self.logger.debug(f"Calculated height: {height}")
+        return  height
+
+    def get_children_commands(self) -> Iterator['AbstractTransformationCommand']:
+        yield self.target_grid_command
+
+    @classmethod
+    def describe(cls) -> str:
+        return "Returns the height of the grid as an integer."
+
+    synthesis_rules = {
+            "output_type": "int_value",
+            "args": [
+                {"name": "target_grid_command", "type": "grid_command"}
+            ]
+        }
+
+class GetGridWidth(AbstractTransformationCommand):
+    """
+    DSL Command: ─(grid_source_command)
+    Returns the width (number of columns) of the grid produced by grid_source_command.
+    Outputs an integer.
+    """
+    def __init__(self, target_grid_command: AbstractTransformationCommand , logger: logging.Logger=None,):
+        super().__init__(logger)
+        self.target_grid_command = target_grid_command
+        self.logger.debug(f"Initialized GetGridWidth with source: {target_grid_command.describe()}")
+
+    def execute(self, input_grid: np.ndarray) -> int:
+        self.logger.debug(f"Executing GetGridWidth on grid_source_command.")
+        grid_to_measure = self.target_grid_command.execute(input_grid)
+        if not isinstance(grid_to_measure, np.ndarray):
+            self.logger.error(f"GetGridWidth expects a grid, but received {type(grid_to_measure)}")
+            raise TypeError(f"GetGridWidth expects a grid command output, but received {type(grid_to_measure)}")
+        width = grid_to_measure.shape[1]
+        self.logger.debug(f"Calculated width: {width}")
+        return  width
+
+    def get_children_commands(self) -> Iterator['AbstractTransformationCommand']:
+        yield self.target_grid_command
+
+    @classmethod
+    def describe(cls) -> str:
+        return "Returns the width of the grid as an integer."
+
+
+    synthesis_rules = {
+            "output_type": "int_value",
+            "args": [
+                {"name": "target_grid_command", "type": "grid_command"}
+            ]
+        }
