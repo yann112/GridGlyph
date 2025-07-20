@@ -10,8 +10,8 @@ from assets.symbols import ROM_VAL_MAP
 _WILDCARD_VALUE = -1
 _SAFE_EVAL_GLOBALS = {"np": np}
 _SAFE_EVAL_LOCALS = {}
-ROMAN_INDEX_PATTERN = r"(?:I|II|III|IV|V|VI|VII|VIII|IX|X)"
-ROMAN_VALUE_PATTERN = r"(?:I|II|III|IV|V|VI|VII|VIII|IX|X|∅)"
+ROMAN_INDEX_PATTERN = r"-?(?:I|II|III|IV|V|VI|VII|VIII|IX|X)"
+ROMAN_VALUE_PATTERN = r"-?(?:I|II|III|IV|V|VI|VII|VIII|IX|X|∅)"
 
 
 def _process_match_pattern_full_params(
@@ -158,13 +158,27 @@ def _split_balanced_args(s: str, num_args: int = None) -> List[str]:
         raise ValueError(f"Expected {num_args} arguments but found {len(args)} after balanced split for string: '{s}'")
     return args
 
-def  roman_to_int(s: str) -> int:
-    """Converts a Roman numeral string (up to XXX) to an integer."""
+def roman_to_int(s: str) -> int:
+    """
+    Converts a Roman numeral string (up to XXX) to an integer,
+    supporting an optional leading negative sign.
+    """
+    is_negative = False
+    if s.startswith('-'):
+        is_negative = True
+        s = s[1:] # Remove the negative sign for lookup
 
-    val = ROM_VAL_MAP.get(s.upper())
+    # Convert to uppercase for map lookup
+    s_upper = s.upper()
+
+    val = ROM_VAL_MAP.get(s_upper)
+
     if val is None:
-        raise ValueError(f"Invalid or out-of-range Roman numeral: {s}. Max supported is XXX.")
-    return val
+        # Re-add the '-' to the error message if it was present
+        display_s = f"-{s}" if is_negative and s else s
+        raise ValueError(f"Invalid or out-of-range Roman numeral: {display_s}. Max supported is XXX.")
+
+    return -val if is_negative else val
 
 
 SYMBOL_RULES = {
@@ -483,6 +497,45 @@ SYMBOL_RULES = {
         },
         "target_op_name": "locate_pattern"
     },
+    "slice_grid": {
+        "pattern": fr"^✂\((?P<row_start>{ROMAN_VALUE_PATTERN}),\s*(?P<col_start>{ROMAN_VALUE_PATTERN}),\s*(?P<row_end>{ROMAN_VALUE_PATTERN}),\s*(?P<col_end>{ROMAN_VALUE_PATTERN})\)$",
+        "transform_params": lambda m: {
+            "row_start": roman_to_int(m["row_start"]),
+            "col_start": roman_to_int(m["col_start"]),
+            "row_end": roman_to_int(m["row_end"]),
+            "col_end": roman_to_int(m["col_end"])
+        },
+    },
+    "fill_region": {
+        "pattern": fr"^\s*■\((?P<target_grid_str>.+?),\s*(?P<fill_value>{ROMAN_VALUE_PATTERN}),\s*(?P<row_start>{ROMAN_VALUE_PATTERN}),\s*(?P<col_start>{ROMAN_VALUE_PATTERN}),\s*(?P<row_end>{ROMAN_VALUE_PATTERN}),\s*(?P<col_end>{ROMAN_VALUE_PATTERN})\)\s*$",
+        "transform_params": lambda m: {
+            "target_grid_str": m["target_grid_str"],
+            "fill_value": roman_to_int(m["fill_value"]),
+            "row_start": roman_to_int(m["row_start"]),
+            "col_start": roman_to_int(m["col_start"]),
+            "row_end": roman_to_int(m["row_end"]),
+            "col_end": roman_to_int(m["col_end"]) 
+        },
+        "nested_commands": {
+            "target_grid_command": "target_grid_str", 
+        }
+    },
+    "add_grid_to_canvas": {
+        "pattern": fr"^\s*⊞\((?P<all_args>.+)\)\s*$",
+        "op_name": "AddGridToCanvas",
+        "transform_params": lambda m: (
+            args := _split_balanced_args(m["all_args"], num_args=4),
+            {"target_grid_cmd_str": args[0],
+            "source_grid_cmd_str": args[1],
+            "row_offset": roman_to_int(args[2]),
+            "col_offset": roman_to_int(args[3])}
+        )[1],
+        "nested_commands": {
+            "target_grid_command": "target_grid_cmd_str",
+            "source_grid_command": "source_grid_cmd_str",
+        },
+    },
+    
 }
 
 

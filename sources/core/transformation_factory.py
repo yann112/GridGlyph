@@ -46,7 +46,10 @@ class TransformationFactory:
         'mask_or': MaskOr,
         'mask_not': MaskNot,
         'binarize': Binarize,
-        'locate_pattern': LocatePattern
+        'locate_pattern': LocatePattern,
+        'slice_grid': SliceGrid,
+        'fill_region': FillRegion,
+        'add_grid_to_canvas': AddGridToCanvas,
 }
 
     @classmethod

@@ -1,168 +1,163 @@
-DSL Command Implementation Cheatsheet
+## DSL Command Integration: A Straightforward Guide
 
-This guide covers the core architecture for adding new commands to your DSL, focusing on the interplay between the DSL syntax, the SymbolicRuleParser, AbstractTransformationCommand nodes, and the DSLExecutor.
+This guide explains how to add new commands to your DSL. It focuses on the essential parts and how they work together to turn your DSL text into executable code.
 
-1. Command Definition & Architecture (core/dsl_nodes.py)
+-----
+
+### 1\. Define Your Command Class (`core/dsl_nodes.py`)
+
+Every command is a Python class inheriting from `AbstractTransformationCommand`.
+
+#### `AbstractTransformationCommand` (Base Class)
 
-All commands in your DSL should adhere to a common structure based on the AbstractTransformationCommand base class.
+  * **Purpose:** The blueprint for all executable DSL operations.
+  * **Key Methods You Implement:**
+      * `__init__(self, logger, ...)`: Sets up your command. Parameters can be:
+          * **Direct values:** `int`, `str`, `np.ndarray` (e.g., `fill_value: int`).
+          * **Other commands:** `AbstractTransformationCommand` instances (e.g., `target_grid_command: AbstractTransformationCommand`).
+      * `execute(self, input_grid: np.ndarray) -> Union[np.ndarray, int]`: The command's core logic. It processes `input_grid` and returns a `np.ndarray` (for grid ops) or an `int` (for scalar ops).
+      * `get_children_commands(self) -> Iterator['AbstractTransformationCommand']`: **Crucial.** Yields *only* `AbstractTransformationCommand` instances that are direct arguments (children) of this command. **Do NOT yield simple `int`s or `str`s.**
+      * `describe(cls) -> str`: A short, human-readable description.
+      * `synthesis_rules (dict)`: Metadata for program synthesis.
 
-    AbstractTransformationCommand (Base Class):
+#### Types of Commands (How They Take Arguments)
 
-        Purpose: Defines the interface for all executable commands in your DSL tree.
+  * **Simple Value Commands:**
 
-        Key Methods:
+      * **Description:** Take direct Python literals (like integers from Roman numerals, strings). The parser converts these strings to Python types *before* passing them to `__init__`.
+      * **Examples:** `FillRegion` (for `fill_value`, coordinates), `CreateSolidColorGrid`.
+      * `__init__`: Parameters are direct types (e.g., `fill_value: int`).
+      * `execute()`: Uses these values directly.
+      * `get_children_commands()`: Yields only other command objects, or nothing if all arguments are direct values.
 
-            __init__(self, logger): Standard constructor.
+  * **Nested Command Commands (Combinators):**
 
-            execute(self, input_grid: np.ndarray) -> np.ndarray (or Any for constants/scalars): The core logic of your command. This is where the transformation happens. Crucially, grid-transforming commands must return a np.ndarray.
+      * **Description:** Take other commands as arguments, building a command tree. The parser provides `AbstractTransformationCommand` objects to `__init__`.
+      * **Examples:** `Sequence` (⟹), `ConditionalTransform` (¿), `MaskCombinator` (⧎).
+      * `__init__`: Parameters are `AbstractTransformationCommand` instances (e.g., `true_command: AbstractTransformationCommand`).
+      * `execute()`: Calls `.execute()` on its child command arguments.
+      * `get_children_commands()`: **Must yield all nested `AbstractTransformationCommand` arguments.**
 
-            get_children_commands(self) -> Iterator['AbstractTransformationCommand'] (or List): Absolutely vital for the DSLExecutor's traversal. This method must yield/return every AbstractTransformationCommand instance that is a direct child (argument) of the current command. If a command holds other commands as arguments (e.g., ConditionalTransform holding true_command, condition_command), they must be returned here.
+-----
 
-            describe(cls) -> str: Provides a human-readable description (useful for debugging and documentation).
+### 2\. Understand DSL Syntax
 
-            synthesis_rules: A dictionary for meta-information, useful if you're building a program synthesis component (e.g., {"type": "combinator", "requires_inner": True}).
+Your DSL uses specific symbols and structure:
 
-    Types of Commands:
+  * **Single Symbols:** `Ⳁ`, `↔`, `↕`, `↢`, `⤨`, `⧈`, `⧀`, `⌂`, `∅`, `¬`.
+  * **Parameterized Symbols:** `SYMBOL(arg1, arg2, ... argN)`. Examples: `⟹`, `¿`, `◫`, `⊕`, `■`, `⧎`, `→`, `⇄`, `⮝`, `⮞`, `✂`, `⌖`, `⬒`, `◨`, `∧`, `∨`, `ⓑ`, `◎`, `⏚`, `⊡`, `≡`, `≗`, `⍰`, `▦`, `⇒`.
+  * **Constants:**
+      * **Roman Numerals (I, II, ..., X):** Converted to `int`s (1-10).
+      * **∅:** Converted to `int` `0`.
+      * **? (Wildcard):** For patterns.
+  * **Structure:** Arguments separated by `,`, grouped by `()`. Lists/Grids use `[]`. Arguments can be nested commands.
 
-        Atomic/Leaf Commands: Commands that don't take other commands as arguments (e.g., Identity (Ⳁ), FlipGridLeftRight (↔), InputGridReference (⌂), IntLiteral (I, II, etc.)).
+-----
 
-            execute() will directly perform an operation or return a value.
+### 3\. Configure the Parser (`SymbolicRuleParser` in `core/dsl_parser.py`)
 
-            get_children_commands() will return an empty list/iterator.
+This tells the parser how to turn DSL strings into command objects. Add a new entry to the `SYMBOL_RULES` dictionary for each new command.
 
-        Combinator Commands: Commands that take one or more other commands as arguments (e.g., SequentialComposition (⟹), ConditionalTransform (¿C), MatchPattern (◫), HorizontalConcatenation (◨)).
+Each entry needs:
 
-            __init__ will receive AbstractTransformationCommand instances as parameters.
+  * **`"pattern"`:** A regex to match your command's DSL string. Use `(?P<name>...)` to capture arguments.
 
-            execute() will typically call execute() on its child commands to get their results, then combine or use those results.
+  * **`"op_name"`:** The exact string name of your command class (e.g., `"FillRegion"`).
 
-            get_children_commands() must yield/return all these nested AbstractTransformationCommand arguments. This is where issues like the InputGridReference problem often arise if missed.
+  * **Argument Processing:** This is how captured strings become Python values or command objects.
 
-2. DSL Syntax & Constants (core/dsl_nodes.py & SymbolicRuleParser context)
+    **a. For Simple Values (Direct Conversion in `transform_params`):**
 
-Your DSL uses specific symbols and a structured format.
+      * **Use when:** Your command class `__init__` expects a direct `int`, `str`, etc.
+      * **How:** In `transform_params`, convert the regex-captured string directly.
+      * **Example (for `FillRegion`'s `fill_value: int`):**
+        ```python
+        # In SYMBOL_RULES for "fill_region"
+        "pattern": fr"^\s*■\((?P<target_grid_str>.+?),\s*(?P<fill_value>{ROMAN_VALUE_PATTERN}),...)\s*$",
+        "transform_params": lambda m: {
+            "target_grid_str": m["target_grid_str"], # String for nested command
+            "fill_value": roman_to_int(m["fill_value"]), # <--- Directly convert to int
+            # ... other int conversions
+        },
+        "nested_commands": {
+            "target_grid_command": "target_grid_str", # Only this argument is a nested command
+        },
+        # ...
+        ```
+          * **Note:** `_split_balanced_args` is generally NOT used here, as the regex directly captures each literal argument.
 
-    Single-character symbols: Ⳁ, ↔, ↕, ↢, ⤨, ⧈, ⧀, ⌂, ∅.
+    **b. For Nested Commands (via `nested_commands`):**
 
-    Combinator symbols: ⟹, ¿C, ◫, ⊕, ⧎, →, ⇄, ⮝, ⮞. These typically follow the pattern SYMBOL(arg1, arg2, ..., argN).
+      * **Use when:** Your command class `__init__` expects another `AbstractTransformationCommand` object.
+      * **How:**
+        1.  In `transform_params`, capture the full string of the nested command (using `.+` or `_split_balanced_args` if there are multiple comma-separated nested commands).
+        2.  List this captured string in `"nested_commands"`. The parser will then recursively parse this string into a command object.
+      * **Example (for `ConditionalTransform`'s `condition_command`):**
+        ```python
+        # In SYMBOL_RULES for "conditional_transform"
+        "pattern": r"^¿\((?P<all_args>.+)\)$",
+        "transform_params": lambda m: (
+            args := _split_balanced_args(m["all_args"], num_args=None),
+            {"condition_cmd_str": args[0], ...}
+        )[1],
+        "nested_commands": {
+            "condition_command": "condition_cmd_str", # <--- Tells parser to parse this string
+            # ... other nested commands
+        },
+        # ...
+        ```
 
-    Constants/Literals:
+  * **`"param_processors"` (Advanced):** Rarely used for new commands; prefer `"nested_commands"` for recursive parsing.
 
-        I, II, III, IV, V, VI, VII, VIII, IX, X: Map to IntLiteral (1 to 10).
+-----
 
-        ∅: Can map to IntLiteral(0) for colors/sizes, or EmptyGridLiteral.
+### 4\. Understand the Executor (`DSLExecutor`)
 
-        V, X: Often used for specific colors (e.g., 5 for orange, 10 for blue).
+The executor runs your parsed command tree with an input grid.
 
-    Argument Handling:
+  * `__init__(self, root_command, initial_puzzle_input, logger)`:
+      * Gets the top-level command and the input grid.
+      * It recursively sets up commands using `get_children_commands()` to inject `initial_puzzle_input` (for `InputGridReference`) and context.
+  * `execute_program() -> np.ndarray`:
+      * Simply calls `self.root_command.execute(self.initial_puzzle_input)`. Execution flows from this single call, as commands recursively call `execute()` on their children.
 
-        Arguments are separated by commas ,.
+-----
 
-        Arguments can be other commands, including nested combinators.
+### 5\. New Command Checklist (Step-by-Step)
 
-        Parentheses () are used for grouping arguments of a combinator.
+1.  **Design It:**
 
-        Square brackets [] are used for lists, e.g., for MatchPattern's cases parameter ([(pattern_cmd, action_cmd), (..., ...)]).
+      * What does it do?
+      * What arguments? Are they `int`s/`str`s or other commands?
+      * What type does `execute()` return (`np.ndarray` or `int`)?
+      * Pick a unique symbol.
 
-3. The Parser (SymbolicRuleParser)
+2.  **Create Class (`core/dsl_nodes.py`):**
 
-The parser is responsible for converting a DSL string into a tree of AbstractTransformationCommand objects.
+      * Inherit `AbstractTransformationCommand`.
+      * Implement `__init__`: Use correct type hints (`int`, `str`, `AbstractTransformationCommand`).
+      * Implement `get_children_commands()`: **Yield *only* `AbstractTransformationCommand` arguments.**
+      * Implement `execute()`: Define logic. Call `.execute()` on command arguments.
+      * Implement `describe()`.
+      * (Optional) `synthesis_rules`.
 
-    SYMBOL_RULES (core/dsl_parser.py):
+3.  **Define Symbol Rule (`SYMBOL_RULES` in `core/dsl_parser.py`):**
 
-        This dictionary defines how the parser recognizes and constructs commands.
+      * Add entry to `SYMBOL_RULES`.
+      * Write `"pattern"` regex (use `(?P<name>...)`).
+      * Set `"op_name"` to your class name.
+      * Define `"transform_params"`: Convert regex captures to Python types (e.g., `roman_to_int`).
+      * Define `"nested_commands"` (if arguments are other commands).
 
-        Adding a new command means adding an entry here.
+4.  **Update `TransformationFactory.OPERATION_MAP`:**
 
-        Key components for each entry:
+      * Map your `op_name` string to the new command class (e.g., `'MyNewCommand': MyNewCommand`).
 
-            "pattern": A regular expression that matches the DSL string for your command. Use named capture groups (?P<arg_name>...) to extract arguments.
+5.  **Test It (`tests/test_dsl_symbolic_executor.py`):**
 
-            "op_name": The string name of the AbstractTransformationCommand class (e.g., "Identity", "FlipGridLeftRight", "ConditionalTransform"). This is used by the TransformationFactory.
-
-            "param_processors": This is crucial for handling arguments. It's a dictionary mapping your regex capture group names (e.g., condition_command_str, action_command_str) to functions that process those string arguments into the correct Python types (typically AbstractTransformationCommand instances or literal values).
-
-                For nested commands: Use lambda s, factory: factory.create_command_from_rule_string(s) to recursively parse sub-rules.
-
-                For splitting arguments: _split_balanced_args(arg_string) is essential for parsing arguments within parentheses, especially for combinators with multiple arguments.
-
-                For lists of tuples (e.g., MatchPattern.cases): This is complex. You need custom logic to split the list string, then for each tuple string, split that into two parts and use create_command_from_rule_string for each part. Example:
-                Python
-
-                "cases_str": lambda s, factory: [
-                    (factory.create_command_from_rule_string(arg1_str),
-                     factory.create_command_from_rule_string(arg2_str))
-                    for arg1_str, arg2_str in your_split_function(s) # your_split_function splits "[(a,b),(c,d)]" into pairs
-                ]
-
-                For literals/constants (I, II, V, X, ∅): You'll need _parse_literal_argument(s, factory) or similar helper functions that map these symbols to IntLiteral or ColorLiteral objects.
-
-4. The Executor (DSLExecutor)
-
-The executor is the runtime environment that takes your parsed command tree and executes it with an input grid.
-
-    __init__(self, root_command, initial_puzzle_input, logger):
-
-        Receives the top-level command of the parsed DSL program.
-
-        Receives the actual input grid for the current task.
-
-        Crucially calls:
-
-            _initialize_command_tree(self.root_command): This method recursively traverses the command tree using command.get_children_commands() and calls set_initial_puzzle_input() on any InputGridReference (⌂) instances it finds. If InputGridReference errors, check this traversal!
-
-            _inject_executor_context(self.root_command): Similarly, traverses the tree to inject a reference to the DSLExecutor itself into commands that might need it (e.g., for variable access, though you haven't implemented that yet).
-
-    execute_program() -> np.ndarray:
-
-        Simply calls self.root_command.execute(self.initial_puzzle_input). The entire program execution flows from this single call, as commands recursively call execute() on their children.
-
-5. Implementing a New Command: Checklist
-
-When adding a new command, follow these steps:
-
-    Design the Command:
-
-        What is its purpose?
-
-        What arguments does it take? Are they grids, integers, colors, or other commands?
-
-        What should its execute() method return (usually np.ndarray)?
-
-    Create the Command Class (core/dsl_nodes.py):
-
-        Inherit from AbstractTransformationCommand.
-
-        Implement __init__: Define parameters for its arguments (e.g., command1: AbstractTransformationCommand, value: int).
-
-        Implement get_children_commands(): Yield/return all AbstractTransformationCommand instances that are arguments to this command. If you miss one, the executor won't initialize it (e.g., InputGridReference won't get its puzzle input).
-
-        Implement execute(): Define the core logic. Ensure it correctly calls execute() on its command arguments to get their results. Ensure it returns the correct type (e.g., np.ndarray).
-
-        Implement describe(): A simple string.
-
-        (Optional) Define synthesis_rules.
-
-    Define the Symbol Rule (SYMBOL_RULES in core/dsl_parser.py):
-
-        Choose a unique symbol (e.g., ↦).
-
-        Write a regular expression ("pattern") to match the DSL syntax. Use named capture groups for arguments.
-
-        Set "op_name" to the exact class name of your new command (e.g., "MapGridColor").
-
-        Define "param_processors": Map regex capture group names to lambda functions or helper functions that convert the captured strings into the correct Python objects (commands, integers, etc.). Use factory.create_command_from_rule_string for nested commands.
-
-    Testing (tests/test_dsl_symbolic_executor.py):
-
-        Add new test cases in the test_dsl_executor_execution function.
-
-        Each test should have:
-
-            The DSL string for your new command.
-
-            An initial_input_grid (even if the command doesn't use it directly, the executor expects it).
-
-            The expected_output_grid for that specific input.
-
-        Run your tests! Pay close attention to any AttributeError, TypeError, or InputGridReference errors, as these usually point to issues in execute() or get_children_commands().
+      * Add tests with DSL string, `initial_input_grid`, `expected_output_grid`/value.
+      * **Common Error Solutions:**
+          * **`ValueError: Could not parse symbolic token: 'XYZ'`**: `SYMBOL_RULES` pattern for `XYZ` is wrong/missing, or test string has unhandled leading/trailing whitespace.
+          * **`AttributeError: 'str' object has no attribute 'execute'`**: You passed a string where a command object was expected. Fix `nested_commands` in `SYMBOL_RULES`.
+          * **`TypeError: __init__ got an unexpected keyword argument`**: Mismatch between `transform_params` keys and `__init__` parameters.
+          * **Errors related to `InputGridReference`**: Missing commands in `get_children_commands()` of parent commands.

@@ -1562,3 +1562,179 @@ class LocatePattern(AbstractTransformationCommand):
              [0,1,1,1,0],
              [0,0,0,0,0]]
         """
+    
+    
+class SliceGrid(AbstractTransformationCommand):
+    def __init__(self,
+                 row_start: int,
+                 col_start: int,
+                 row_end: int,
+                 col_end: int,
+                 logger=None):
+        super().__init__(logger)
+        self.row_start = row_start
+        self.col_start = col_start
+        self.row_end = row_end
+        self.col_end = col_end
+
+    def execute(self, input_grid: np.ndarray) -> np.ndarray:
+        actual_row_start = self.row_start - 1
+        actual_col_start = self.col_start - 1
+        actual_row_end = self.row_end 
+        actual_col_end = self.col_end 
+
+        return input_grid[actual_row_start:actual_row_end, actual_col_start:actual_col_end]
+
+    def get_children_commands(self) -> Iterator['AbstractTransformationCommand']:
+        yield from ()
+
+    @classmethod
+    def describe(cls) -> str:
+        return "Slices a rectangular sub-grid from the input grid based on 1-indexed start and end row/column indices."
+    
+class FillRegion(AbstractTransformationCommand):
+    def __init__(
+        self,
+        target_grid_command: AbstractTransformationCommand,
+        fill_value: int,
+        row_start: int,
+        col_start: int,
+        row_end: int,
+        col_end: int,
+        logger=None
+    ):
+        super().__init__(logger)
+        self.target_grid_command = target_grid_command
+        self.fill_value = fill_value
+        self.row_start = row_start
+        self.col_start = col_start
+        self.row_end = row_end
+        self.col_end = col_end
+
+    def execute(self, input_grid: np.ndarray) -> np.ndarray:
+        target_grid = self.target_grid_command.execute(input_grid)
+        
+        result_grid = np.copy(target_grid)
+
+        np_row_start = self.row_start - 1
+        np_col_start = self.col_start - 1
+        np_row_end = self.row_end
+        np_col_end = self.col_end
+
+        grid_height, grid_width = result_grid.shape
+        if not (1 <= self.row_start <= grid_height and 1 <= self.col_start <= grid_width and
+                1 <= self.row_end <= grid_height and 1 <= self.col_end <= grid_width and
+                self.row_start <= self.row_end and self.col_start <= self.col_end):
+            self.logger.warning(
+                f"FillRegion coordinates out of bounds or invalid: "
+                f"Grid({grid_height}x{grid_width}), "
+                f"Region([{self.row_start},{self.col_start}] to [{self.row_end},{self.col_end}]). "
+                f"Returning original grid."
+            )
+            return target_grid
+
+        result_grid[np_row_start:np_row_end, np_col_start:np_col_end] = self.fill_value
+        return result_grid
+
+    def get_children_commands(self) -> Iterator['AbstractTransformationCommand']:
+        yield self.target_grid_command
+        
+    @classmethod
+    def describe(cls) -> str:
+        return "FillRegion(target_grid, fill_value, row_start, col_start, row_end, col_end): Fills a rectangular region of target_grid."
+
+    synthesis_rules = {
+        "type": "transformation",
+        "arity": 6,
+        "allowed_input_types": {
+            "target_grid_command": "grid",
+            "fill_value": "scalar",
+            "row_start": "scalar",
+            "col_start": "scalar",
+            "row_end": "scalar",
+            "col_end": "scalar"
+        }
+    }
+    
+    
+class AddGridToCanvas(AbstractTransformationCommand):
+    """
+    Adds a source_grid to a target_grid (canvas) at a specified (row, col) offset.
+    The source_grid is cropped if it extends beyond the bounds of the target_grid.
+    The left corner of the source_grid is used as the reference point for placement.
+    """
+
+    def __init__(self,
+                 target_grid_command: AbstractTransformationCommand,
+                 source_grid_command: AbstractTransformationCommand,
+                 row_offset: int,
+                 col_offset: int,
+                 logger=None
+                 ):
+        super().__init__(logger)
+        self.target_grid_command = target_grid_command
+        self.source_grid_command = source_grid_command
+        self.row_offset = row_offset
+        self.col_offset = col_offset
+
+    def execute(self, input_grid: np.ndarray) -> np.ndarray:
+        target_grid = self.target_grid_command.execute(input_grid)
+        source_grid = self.source_grid_command.execute(input_grid)
+
+        if not isinstance(target_grid, np.ndarray) or not isinstance(source_grid, np.ndarray):
+            raise ValueError("AddGridToCanvas expects both target_grid and source_grid to be numpy arrays.")
+
+        target_rows, target_cols = target_grid.shape
+        source_rows, source_cols = source_grid.shape
+
+        # Calculate the paste region in the target grid coordinates
+        # start_row_target, end_row_target: exclusive
+        # start_col_target, end_col_target: exclusive
+        start_row_target = max(0, self.row_offset)
+        end_row_target = min(target_rows, self.row_offset + source_rows)
+        start_col_target = max(0, self.col_offset)
+        end_col_target = min(target_cols, self.col_offset + source_cols)
+
+        # Calculate the corresponding region in the source grid coordinates for cropping
+        # start_row_source, end_row_source: exclusive
+        # start_col_source, end_col_source: exclusive
+        start_row_source = max(0, -self.row_offset)
+        end_row_source = min(source_rows, target_rows - self.row_offset)
+        start_col_source = max(0, -self.col_offset)
+        end_col_source = min(source_cols, target_cols - self.col_offset)
+
+        # Ensure the paste region is valid
+        if start_row_target >= end_row_target or start_col_target >= end_col_target:
+            self.logger.warning(
+                f"Attempted to add a grid completely out of bounds at ({self.row_offset}, {self.col_offset}). "
+                f"Target grid: {target_grid.shape}, Source grid: {source_grid.shape}. Returning original target grid."
+            )
+            return target_grid.copy() # Return a copy to ensure immutability if the input was passed directly
+
+        # Create a copy of the target grid to modify
+        result_grid = target_grid.copy()
+
+        # Perform the copy
+        result_grid[start_row_target:end_row_target, start_col_target:end_col_target] = \
+            source_grid[start_row_source:end_row_source, start_col_source:end_col_source]
+
+        return result_grid
+
+    def get_children_commands(self) -> Iterator['AbstractTransformationCommand']:
+        yield self.target_grid_command
+        yield self.source_grid_command
+
+    @classmethod
+    def describe(cls) -> str:
+        return "Adds a source grid to a target grid at an offset, cropping if out of bounds."
+
+    synthesis_rules = {
+        "output_type": "grid",
+        "input_type": "grid",
+        "parameters": [
+            {"name": "target_grid_command", "type": "grid_command"},
+            {"name": "source_grid_command", "type": "grid_command"},
+            {"name": "row_offset", "type": "int"},
+            {"name": "col_offset", "type": "int"},
+        ],
+    }
