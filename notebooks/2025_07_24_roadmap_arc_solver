@@ -1,0 +1,106 @@
+# 🧠 ARC Solver Roadmap (Memo)
+
+### 🎯 **Goal**
+Train a **tiny, efficient model** (e.g. TinyLlama) to predict **valid DSL rules** from input grids — and use it to solve ARC puzzles.
+
+You're not brute-forcing. You're not using GPT-4.  
+You're building a **symbolic reasoning engine** with **grounded semantics**.
+
+---
+
+## ✅ Phase 1: Finalize Rule Generation  
+**→ Reach 1000 high-quality, diverse DSL rules**
+
+- Keep running your LLM loop.
+- Cycle through complexity prompts:
+  - `simple`: atomic rules (`⇒`, `⌖`, `▦`)
+  - `moderate`: 2–3 level nesting
+  - `complex`: logical chains (`⟹`, `∨`, `ⓑ`)
+  - `advanced`: recursive patterns (like `00dbd492`)
+- Use `mistral-small-3.2-24b-instruct`
+- Set `rules_per_batch = 5`, `temperature = 0.7`
+- Stop when: **1000 valid rules collected**
+
+> ✅ This is your **training corpus**.
+
+---
+
+## ✅ Phase 2: Build (Grid, Rule) Training Dataset  
+**→ Create synthetic pairs for model training**
+
+For each rule:
+1. Extract the pattern from `▦(...)` using regex.
+2. Generate a **minimal input grid** that contains the pattern.
+3. Add light noise (optional) to make it realistic.
+4. Pair: `{ "input_grid": [[...]], "dsl_rule": "⌖(⌂, ▦(...))" }`
+
+Do this **programmatically** — no neural model needed.
+
+> ✅ This is your **training data**.
+
+---
+
+## ✅ Phase 3: Train a Tiny Model  
+**→ Teach a small model to predict rules from grids**
+
+- Use **TinyLlama-1.1B** or **Phi-2**
+- Fine-tune with **LoRA** (efficient)
+- Input: `input_grid` as text
+- Output: `dsl_rule` as text
+- Train on your (grid, rule) dataset
+
+> ✅ This is your **rule proposer**.
+
+---
+
+## ✅ Phase 4: Build the ARC Solver  
+**→ Use the model to solve puzzles**
+
+For each ARC test puzzle:
+1. Run the trained model on the **input grid** → get top 5 rule predictions.
+2. **Execute** each rule on the input.
+3. **Check** if output matches expected.
+4. If yes → **submit**.
+5. If no → **mutate** (e.g., change colors, nesting) and retry.
+
+> ✅ This is your **solver loop**.
+
+---
+
+## ✅ Phase 5: Scale to Complex Puzzles  
+**→ Go beyond atomic rules**
+
+- Add **rule composition**: combine atomic rules into sequences (`⧎`, `⟹`)
+- Add **search with feedback**: use intermediate outputs to guide next steps
+- Add **meta-reasoning**: classify puzzle type (symmetry, counting, etc.) to guide strategy
+
+> ✅ This is your **reasoning engine**.
+
+---
+
+## ✅ Your Edge vs. Big Teams
+
+| You | Big Teams |
+|-----|----------|
+| Small, focused model | Massive LLMs (wasteful) |
+| Grounded in real semantics | Black-box guessing |
+| Programmatic data synthesis | Brute-force or web-scale data |
+| Full control | Over-engineered, slow |
+
+You’re not competing on scale.  
+You’re competing on **intelligence, precision, and efficiency**.
+
+---
+
+## ✅ Final Note
+
+You don’t need:
+- ❌ A model that generates grids from rules
+- ❌ 10M training examples
+- ❌ GPT-4 or 100 GPUs
+
+You need:
+- ✅ 1000 good rules
+- ✅ 1000 meaningful (grid, rule) pairs
+- ✅ One small, well-trained model
+- ✅ A smart solver loop

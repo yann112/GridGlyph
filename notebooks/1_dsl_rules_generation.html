@@ -3,7 +3,7 @@
 <html lang="en">
 <head><meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>solve_symbolic_puzzle</title><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js"></script>
+<title>1_dsl_rules_generation</title><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js"></script>
 <style type="text/css">
     pre { line-height: 125%; }
 td.linenos .normal { color: inherit; background-color: transparent; padding-left: 5px; padding-right: 5px; }
@@ -7509,7 +7509,62 @@ a.anchor-link {
 </style>
 <!-- End of mermaid configuration --></head>
 <body class="jp-Notebook" data-jp-theme-light="true" data-jp-theme-name="JupyterLab Light">
-<main><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs">
+<main><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=5b1eb1c7">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+<div class="cm-editor cm-s-jupyter">
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">random</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span> <span class="nn">dotenv</span> <span class="kn">import</span> <span class="n">load_dotenv</span>
+
+<span class="n">load_dotenv</span><span class="p">()</span>
+
+<span class="n">project_root</span> <span class="o">=</span> <span class="n">Path</span><span class="o">.</span><span class="n">cwd</span><span class="p">()</span><span class="o">.</span><span class="n">parent</span>
+<span class="n">src_path</span> <span class="o">=</span> <span class="n">project_root</span> <span class="o">/</span> <span class="s2">"sources"</span>
+<span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">src_path</span><span class="p">))</span>
+
+<span class="kn">from</span> <span class="nn">core.llm</span> <span class="kn">import</span> <span class="n">OpenRouterClient</span>
+<span class="kn">from</span> <span class="nn">utils.generate_dsl_docs</span> <span class="kn">import</span> <span class="n">generate_symbolic_dsl_reference_markdown</span>
+
+<span class="kn">from</span> <span class="nn">core.dsl_symbolic_interpreter</span> <span class="kn">import</span> <span class="n">SymbolicRuleParser</span>
+
+<span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="s2">"/home/yann/ssd_storage/python/arcprize2025/tests/"</span><span class="p">)))</span>
+<span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="s2">"/home/yann/ssd_storage/python/arcprize2025/sources/"</span><span class="p">)))</span>
+<span class="kn">from</span> <span class="nn">test_dsl_symbolic_executor</span> <span class="kn">import</span> <span class="n">TEST_CASES</span>
+<span class="kn">from</span> <span class="nn">assets.symbols</span> <span class="kn">import</span> <span class="n">ROM_VAL_MAP</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Cell 1 executed: Environment paths, dotenv loaded, and core modules imported."</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=7e817562">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+<div class="cm-editor cm-s-jupyter">
+<div class="highlight hl-ipython3"><pre><span></span><span class="n">TRUE_RULES</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">"007bbfb7"</span><span class="p">:</span> <span class="s2">"⧎(⟹(◨(III), ⬒(III)), ⤨(III), ⊕(IX,IX,∅))"</span><span class="p">,</span>
+    <span class="s2">"009d5c81"</span><span class="p">:</span> <span class="s2">"◫(⧈(◎(I)), [(▦(III,III,∅I∅;III;∅I∅), ⟹(⇒(VIII, II), ⇒(I, ∅))), (▦(III,III,I∅I;∅I∅;III), ⟹(⇒(VIII, III), ⇒(I, ∅)))], ⟹(⇒(VIII, VII), ⇒(I, ∅)))"</span><span class="p">,</span>
+    <span class="s2">"00d62c1b"</span><span class="p">:</span> <span class="s2">"⧎(⌂,∨(⏚(∅),ⓑ(◎(III))),⟹(∨(⏚(∅),ⓑ(◎(III))),⟹(⇒(∅,IV),⇒(I,∅))))"</span><span class="p">,</span>
+    <span class="s2">"00dbd492"</span><span class="p">:</span> <span class="s2">"⧎(⇒(∅,III),⌖(⌂,▦(IX,IX,[[II,II,II,II,II,II,II,II,II],[II,∅,∅,∅,∅,∅,∅,∅,II],[II,∅,∅,∅,∅,∅,∅,∅,II],[II,∅,∅,∅,∅,∅,∅,∅,II],[II,∅,∅,∅,II,∅,∅,∅,II],[II,∅,∅,∅,∅,∅,∅,∅,II],[II,∅,∅,∅,∅,∅,∅,∅,II],[II,∅,∅,∅,∅,∅,∅,∅,II],[II,II,II,II,II,II,II,II,II]])),⧎(⇒(∅,IV),⌖(⌂,▦(VII,VII,[[II,II,II,II,II,II,II],[II,∅,∅,∅,∅,∅,II],[II,∅,∅,∅,∅,∅,II],[II,∅,∅,II,∅,∅,II],[II,∅,∅,∅,∅,∅,II],[II,∅,∅,∅,∅,∅,II],[II,II,II,II,II,II,II]])),⧎(⇒(∅,VIII),⌖(⌂,▦(V,V,[[II,II,II,II,II],[II,∅,∅,∅,II],[II,∅,II,∅,II],[II,∅,∅,∅,II],[II,II,II,II,II]])),⌂)))"</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=ab670fed">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -7523,7 +7578,7 @@ a.anchor-link {
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=b00bf7dc">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -7531,255 +7586,92 @@ a.anchor-link {
 <div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">sys</span>
-<span class="kn">import</span> <span class="nn">os</span>
-<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span> <span class="nn">dotenv</span> <span class="kn">import</span> <span class="n">load_dotenv</span>
-<span class="kn">from</span> <span class="nn">pprint</span> <span class="kn">import</span> <span class="n">pprint</span>
+<div class="highlight hl-ipython3"><pre><span></span><span class="k">def</span> <span class="nf">create_pure_rule_generation_prompt</span><span class="p">(</span>
+    <span class="n">num_rules_to_generate</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+    <span class="n">complexity_focus</span><span class="o">=</span><span class="s2">"simple"</span><span class="p">,</span>
+    <span class="n">target_command</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="n">doc_sigil</span> <span class="o">=</span> <span class="n">generate_symbolic_dsl_reference_markdown</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">doc_sigil</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"Missing required argument: 'doc_sigil'. Please pass the DSL grammar."</span><span class="p">)</span>
 
-<span class="c1"># Load environment variables from .env</span>
-<span class="n">load_dotenv</span><span class="p">()</span>
-<span class="c1"># Add src folder to path</span>
-<span class="n">project_root</span> <span class="o">=</span> <span class="n">Path</span><span class="o">.</span><span class="n">cwd</span><span class="p">()</span><span class="o">.</span><span class="n">parent</span>  <span class="c1"># assumes notebook is in child folder</span>
-<span class="n">src_path</span> <span class="o">=</span> <span class="n">project_root</span> <span class="o">/</span> <span class="s2">"sources"</span>
-<span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">src_path</span><span class="p">))</span>
-<span class="kn">from</span> <span class="nn">core.llm</span> <span class="kn">import</span> <span class="n">OpenRouterClient</span>
-<span class="kn">from</span> <span class="nn">utils.generate_dsl_docs</span> <span class="kn">import</span> <span class="n">generate_symbolic_dsl_reference_markdown</span>
-<span class="kn">from</span> <span class="nn">agents.agents_utils</span> <span class="kn">import</span> <span class="n">MultiGridFeatureCollector</span><span class="p">,</span> <span class="n">SymbolicGridMapper</span>
-</pre></div>
-</div>
-</div>
-</div>
-</div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
-<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
-<div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">json</span>
-<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
+    <span class="n">prompt_examples</span> <span class="o">=</span> <span class="s2">""</span>
+    <span class="n">example_count</span> <span class="o">=</span> <span class="mi">0</span>
 
-<span class="k">def</span> <span class="nf">save_solution_to_json</span><span class="p">(</span><span class="n">puzzle_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">rule</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">file_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">"""</span>
-<span class="sd">    Saves a solved puzzle's rule to a JSON file.</span>
+    <span class="n">available_rule_strings</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="c1"># Add your existing TEST_CASES rules</span>
+    <span class="k">for</span> <span class="n">test_case_item</span> <span class="ow">in</span> <span class="n">TEST_CASES</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">test_case_item</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">and</span> <span class="s2">"rule_string"</span> <span class="ow">in</span> <span class="n">test_case_item</span> <span class="ow">and</span> <span class="n">test_case_item</span><span class="p">[</span><span class="s2">"rule_string"</span><span class="p">]:</span>
+            <span class="n">available_rule_strings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">test_case_item</span><span class="p">[</span><span class="s2">"rule_string"</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">test_case_item</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="n">test_case_item</span><span class="o">.</span><span class="n">strip</span><span class="p">():</span>
+            <span class="n">available_rule_strings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">test_case_item</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
 
-<span class="sd">    Parameters:</span>
-<span class="sd">    - puzzle_id: The ID of the puzzle (e.g., "000d3fb3").</span>
-<span class="sd">    - rule: The DSL rule string that solves the puzzle.</span>
-<span class="sd">    - file_path: The path to the JSON file where solutions are stored.</span>
-<span class="sd">    """</span>
-    <span class="c1"># Ensure the directory exists</span>
-    <span class="n">Path</span><span class="p">(</span><span class="n">file_path</span><span class="p">)</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="c1"># Add your TRUE_RULES as strings</span>
+    <span class="n">true_rule_strings</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">TRUE_RULES</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+    
+    <span class="c1"># Decide which pool of examples to draw from based on complexity</span>
+    <span class="k">if</span> <span class="s2">"complex"</span> <span class="ow">in</span> <span class="n">complexity_focus</span> <span class="ow">or</span> <span class="s2">"advanced"</span> <span class="ow">in</span> <span class="n">complexity_focus</span><span class="p">:</span>
+        <span class="n">eligible_rules_pool</span> <span class="o">=</span> <span class="n">true_rule_strings</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">eligible_rules_pool</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">num_rules_to_generate</span><span class="p">:</span>
+            <span class="n">sorted_test_cases</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">available_rule_strings</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="nb">len</span><span class="p">,</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">eligible_rules_pool</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">sorted_test_cases</span><span class="p">[:</span><span class="n">num_rules_to_generate</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">eligible_rules_pool</span><span class="p">)])</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">sorted_rules_by_length</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">available_rule_strings</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="nb">len</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s2">"simple"</span> <span class="ow">in</span> <span class="n">complexity_focus</span><span class="p">:</span>
+            <span class="n">eligible_rules_pool</span> <span class="o">=</span> <span class="n">sorted_rules_by_length</span><span class="p">[:</span><span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">sorted_rules_by_length</span><span class="p">)</span> <span class="o">//</span> <span class="mi">5</span><span class="p">)]</span>
+        <span class="k">elif</span> <span class="s2">"moderate"</span> <span class="ow">in</span> <span class="n">complexity_focus</span><span class="p">:</span>
+            <span class="n">eligible_rules_pool</span> <span class="o">=</span> <span class="n">sorted_rules_by_length</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">sorted_rules_by_length</span><span class="p">)</span> <span class="o">//</span> <span class="mi">5</span> <span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">sorted_rules_by_length</span><span class="p">)</span> <span class="o">*</span> <span class="mi">4</span> <span class="o">//</span> <span class="mi">5</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">eligible_rules_pool</span> <span class="o">=</span> <span class="n">available_rule_strings</span>
 
-    <span class="n">solutions</span> <span class="o">=</span> <span class="p">{}</span>
-    <span class="k">if</span> <span class="n">Path</span><span class="p">(</span><span class="n">file_path</span><span class="p">)</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="c1"># IMPORTANT CHANGE 1: Specify encoding='utf-8' for reading</span>
-            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">file_path</span><span class="p">,</span> <span class="s1">'r'</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s1">'utf-8'</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-                <span class="n">solutions</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
-        <span class="k">except</span> <span class="n">json</span><span class="o">.</span><span class="n">JSONDecodeError</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Warning: Existing JSON file at </span><span class="si">{</span><span class="n">file_path</span><span class="si">}</span><span class="s2"> is empty or malformed. Starting fresh."</span><span class="p">)</span>
-            <span class="n">solutions</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
-            <span class="c1"># This handles a rare case where the file exists but somehow becomes unavailable right before opening</span>
-            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Warning: File not found at </span><span class="si">{</span><span class="n">file_path</span><span class="si">}</span><span class="s2"> despite existence check. Starting fresh."</span><span class="p">)</span>
-            <span class="n">solutions</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">eligible_rules_pool</span><span class="p">:</span>
+        <span class="n">prompt_examples</span> <span class="o">=</span> <span class="s2">"DSL Program Example: Ⳁ</span><span class="se">\n</span><span class="s2">DSL Program Example: ⇒(I, II)</span><span class="se">\n</span><span class="s2">DSL Program Example: ⟹(↔, ↕)</span><span class="se">\n</span><span class="s2">"</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">random</span><span class="o">.</span><span class="n">shuffle</span><span class="p">(</span><span class="n">eligible_rules_pool</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">rule_str</span> <span class="ow">in</span> <span class="n">eligible_rules_pool</span><span class="p">:</span>
+            <span class="n">prompt_examples</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">"DSL Program Example: </span><span class="si">{</span><span class="n">rule_str</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span>
+            <span class="n">example_count</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">if</span> <span class="n">example_count</span> <span class="o">&gt;=</span> <span class="n">num_rules_to_generate</span><span class="p">:</span>
+                <span class="k">break</span>
 
+    <span class="c1"># ✅ NOW INCLUDE doc_sigil IN THE INSTRUCTION</span>
+    <span class="n">instruction</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"""You are an expert in the Abstract Reasoning Challenge (ARC) and a master of a Domain-Specific Language (DSL) designed for grid manipulation.</span>
+<span class="s2">Your task is to generate </span><span class="si">{</span><span class="n">num_rules_to_generate</span><span class="si">}</span><span class="s2"> NEW and UNIQUE DSL programs.</span>
+<span class="s2">These programs are not for a specific ARC puzzle, but rather to serve as diverse examples of valid DSL syntax and logic for training purposes.</span>
 
-    <span class="n">solutions</span><span class="p">[</span><span class="n">puzzle_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">rule</span>
+<span class="s2">--- **DSL Grammar and Symbols Reference**</span>
+<span class="si">{</span><span class="n">doc_sigil</span><span class="si">}</span>
 
-    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">file_path</span><span class="p">,</span> <span class="s1">'w'</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s1">'utf-8'</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-        <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">solutions</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">ensure_ascii</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Solution for puzzle '</span><span class="si">{</span><span class="n">puzzle_id</span><span class="si">}</span><span class="s2">' saved successfully to </span><span class="si">{</span><span class="n">file_path</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</pre></div>
-</div>
-</div>
-</div>
-</div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
-<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
-<div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># json_file = "/workspaces/arcprize2025/datas/arc-agi_training_challenges.json"</span>
-<span class="c1"># json_file = r"C:\Users\UT00YBG3\Documents\arcprize2025\datas\arc-agi_training_challenges.json"</span>
-<span class="n">json_file</span> <span class="o">=</span> <span class="s2">"/home/yann/ssd_storage/python/arcprize2025/datas/arc-agi_training_challenges.json"</span>
-<span class="n">solved_puzzles_json_path</span> <span class="o">=</span> <span class="s2">"/home/yann/ssd_storage/python/arcprize2025/sources/assets/SYMB_A.json"</span>
-</pre></div>
-</div>
-</div>
-</div>
-</div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
-<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
-<div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">json</span>
-<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">matplotlib.colors</span> <span class="k">as</span> <span class="nn">mcolors</span>
+<span class="s2">--- **Value Mappings**</span>
+<span class="s2">* Roman numerals (I, II, III, IV, V, VI, VII, VIII, IX, X) map to integers 1-10.</span>
+<span class="s2">* ∅ maps to 0.</span>
+<span class="s2">* Katakana symbols from ROM_VAL_MAP (e.g., "❼" for 7) map to 0-9.</span>
 
-<span class="k">def</span> <span class="nf">plot_grid</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s2">""</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">"""</span>
-<span class="sd">    Plots a single 2D grid using matplotlib.</span>
-<span class="sd">    </span>
-<span class="sd">    Parameters:</span>
-<span class="sd">    - grid: List of lists of integers.</span>
-<span class="sd">    - title: Optional title for the plot.</span>
-<span class="sd">    """</span>
-    <span class="n">my_custom_color_list</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="s1">'#000000'</span><span class="p">,</span> <span class="c1"># 0: Black (background)</span>
-        <span class="s1">'#FFD700'</span><span class="p">,</span> <span class="c1"># 1: Gold (for 'レ' / I)</span>
-        <span class="s1">'#00FFFF'</span><span class="p">,</span> <span class="c1"># 2: Cyan (for target 'II')</span>
-        <span class="s1">'#FF4500'</span><span class="p">,</span> <span class="c1"># 3: OrangeRed (for target 'III')</span>
-        <span class="s1">'#800080'</span><span class="p">,</span> <span class="c1"># 4: Purple (example unused color)</span>
-        <span class="s1">'#00FF00'</span><span class="p">,</span> <span class="c1"># 5: Lime Green (example unused color)</span>
-        <span class="s1">'#FFFF00'</span><span class="p">,</span> <span class="c1"># 6: Yellow (example unused color)</span>
-        <span class="s1">'#32CD32'</span><span class="p">,</span> <span class="c1"># 7: LimeGreen (for target 'VII') - ensure distinct from 5</span>
-        <span class="s1">'#0000FF'</span><span class="p">,</span> <span class="c1"># 8: Blue (for 'ハ' / VIII) - explicitly requested</span>
-        <span class="s1">'#FFC0CB'</span>  <span class="c1"># 9: Pink (example unused color)</span>
-        <span class="p">]</span>
-    <span class="n">my_custom_cmap</span> <span class="o">=</span> <span class="n">mcolors</span><span class="o">.</span><span class="n">ListedColormap</span><span class="p">(</span><span class="n">my_custom_color_list</span><span class="p">)</span>
-    <span class="n">grid_array</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">grid</span><span class="p">)</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">grid_array</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="n">my_custom_cmap</span><span class="p">,</span> <span class="n">interpolation</span><span class="o">=</span><span class="s1">'nearest'</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="mi">9</span><span class="p">)</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="n">title</span><span class="p">)</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">axis</span><span class="p">(</span><span class="s1">'off'</span><span class="p">)</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
-</pre></div>
-</div>
-</div>
-</div>
-</div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
-<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
-<div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-ipython3"><pre><span></span><span class="n">n</span><span class="o">=</span><span class="mi">6</span>
+<span class="s2">--- **Example DSL Program Structures**</span>
+<span class="si">{</span><span class="n">prompt_examples</span><span class="si">}</span>
 
-
-<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">json_file</span><span class="p">,</span> <span class="s1">'r'</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
-    <span class="n">data</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">file</span><span class="p">)</span>
-
-<span class="n">data</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
-<span class="n">list_number</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
-<span class="n">puzzle_id</span> <span class="o">=</span> <span class="n">list_number</span><span class="p">[</span><span class="n">n</span><span class="p">]</span>
-<span class="n">puzzle</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">puzzle_id</span><span class="p">]</span>
-
-<span class="c1"># Loop to plot all input/output pairs</span>
-<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">example</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">puzzle</span><span class="p">[</span><span class="s2">"train"</span><span class="p">]):</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"--- Training Example </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2"> ---"</span><span class="p">)</span>
-    <span class="n">plot_grid</span><span class="p">(</span><span class="n">example</span><span class="p">[</span><span class="s2">"input"</span><span class="p">],</span> <span class="n">title</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Training Input </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-    <span class="n">pprint</span><span class="p">(</span><span class="n">example</span><span class="p">[</span><span class="s2">"input"</span><span class="p">])</span>
-    <span class="n">plot_grid</span><span class="p">(</span><span class="n">example</span><span class="p">[</span><span class="s2">"output"</span><span class="p">],</span> <span class="n">title</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Training Output </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-    <span class="n">pprint</span><span class="p">(</span><span class="n">example</span><span class="p">[</span><span class="s2">"output"</span><span class="p">])</span>
-
-
-<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">example</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">puzzle</span><span class="p">[</span><span class="s2">"test"</span><span class="p">]):</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"--- Test Example </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2"> ---"</span><span class="p">)</span>
-    <span class="n">plot_grid</span><span class="p">(</span><span class="n">example</span><span class="p">[</span><span class="s2">"input"</span><span class="p">],</span> <span class="n">title</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Test Input </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</pre></div>
-</div>
-</div>
-</div>
-</div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
-<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
-<div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-ipython3"><pre><span></span><span class="n">mapper</span> <span class="o">=</span> <span class="n">SymbolicGridMapper</span><span class="p">()</span>
-<span class="n">symbolic_variants</span> <span class="o">=</span> <span class="n">mapper</span><span class="o">.</span><span class="n">generate_variants</span><span class="p">(</span><span class="n">puzzle</span><span class="p">,</span> <span class="n">symbol_set_ids</span><span class="o">=</span><span class="p">[</span><span class="s2">"katakana_bk"</span><span class="p">])</span>
-<span class="n">symbolics_grids</span> <span class="o">=</span> <span class="n">mapper</span><span class="o">.</span><span class="n">format_variants_list</span><span class="p">(</span><span class="n">symbolic_variants</span><span class="p">)</span>
-<span class="n">doc_sigil</span> <span class="o">=</span> <span class="n">generate_symbolic_dsl_reference_markdown</span><span class="p">()</span>
-</pre></div>
-</div>
-</div>
-</div>
-</div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
-<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
-<div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">sys</span>
-<span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="s2">"/home/yann/ssd_storage/python/arcprize2025/tests/"</span><span class="p">)))</span> 
-<span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="s2">"/home/yann/ssd_storage/python/arcprize2025/sources/"</span><span class="p">)))</span> 
-<span class="kn">from</span> <span class="nn">test_dsl_symbolic_executor</span> <span class="kn">import</span> <span class="n">TEST_CASES</span>
-<span class="kn">from</span> <span class="nn">assets.symbols</span> <span class="kn">import</span> <span class="n">ROM_VAL_MAP</span>
-</pre></div>
-</div>
-</div>
-</div>
-</div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
-<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
-<div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-ipython3"><pre><span></span><span class="n">prompt</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"""</span>
-<span class="s2">You are an advanced AI specializing in synthesizing solutions for Abstraction and Reasoning Corpus (ARC) puzzles.</span>
-
-<span class="s2">---</span>
-<span class="s2">**Task:**</span>
-<span class="s2">Your primary task is to discover and formulate a *single, generalizable DSL rule* that transforms the given `input_grid` into the corresponding `output_grid` for *all* provided examples.</span>
-
-<span class="s2">---</span>
-<span class="s2">Valid test cases:</span>
-<span class="si">{</span><span class="n">TEST_CASES</span><span class="si">}</span>
-
-<span class="s2">2.  **Input-Output Grid Examples:**</span>
-<span class="s2">    This section provides a set of `(input_grid, output_grid)` pairs. Your synthesized rule must correctly generalize to all of them.</span>
-<span class="s2">    </span><span class="si">{</span><span class="n">symbolics_grids</span><span class="si">}</span>
-
-<span class="s2">---</span>
-<span class="s2">**Rule Requirements:**</span>
-<span class="s2">* The rule must be expressed as a **single symbolic DSL string**.</span>
-<span class="s2">* It must use only the commands specified in the provided DSL documentation.</span>
-<span class="s2">* It must be concise and represent a **generalizable transformation**, not just a specific solution for one example.</span>
-<span class="s2">* It must only contains roman no numbers this is the mapping:</span>
-<span class="si">{</span><span class="n">ROM_VAL_MAP</span><span class="si">}</span>
-<span class="s2">*  this symbols must be map to roman to  from 0 to 9: "symbols": ["∅", "レ", "ハ", "ア", "ヤ", "ユ", "ヨ", "キ", "ク", "ケ"]</span>
-<span class="s2">---</span>
-<span class="s2">**Strategy (Recommended):**</span>
-<span class="s2">1.  Carefully analyze each `input_grid` and its corresponding `output_grid`.</span>
-<span class="s2">2.  Identify the core transformation logic: What changes? What stays the same? Are there patterns of color changes, shape manipulations, positional shifts, or structural compositions?</span>
-<span class="s2">3.  Consider how available DSL commands can be combined or parameterized to achieve this observed transformation.</span>
-<span class="s2">4.  Formulate the most concise and general DSL string that applies to *all* provided examples.</span>
-
-<span class="s2">---</span>
-<span class="s2">**Output Format:**</span>
-<span class="s2">Please provide the DSL rule string.</span>
+<span class="s2">--- **Generation Requirements**</span>
+<span class="s2">* Output ONLY raw DSL rules — one per line.</span>
+<span class="s2">* NO explanations, markdown, bullet points, numbering, or commentary.</span>
+<span class="s2">* Use ONLY the exact symbols defined in the DSL reference (e.g., `⌖`, `◫`, `⟹`, `∨`, `⏚`, `ⓑ`, `◎`, `⧎`, `▦`, `◨`, `⬒`, `⊕`).</span>
+<span class="s2">* Every opening `(` must have a matching closing `)`.</span>
+<span class="s2">* Example of valid output:</span>
+<span class="s2">⌖(▦([[I,II],[III,IV]]), ◫(I, ⌮(II)))</span>
+<span class="s2">⟹(∨(ⓑ(I), ⏚(II)), ⌖(▦([[X]]), I), ⌖(▦([[0]]), II))</span>
+<span class="s2">⊕(I, II, III)</span>
+<span class="s2">* Do NOT invent new syntax or use function names like "BlockGridBuilder", "ApplyToRow", etc.</span>
+<span class="s2">* Generate exactly </span><span class="si">{</span><span class="n">num_rules_to_generate</span><span class="si">}</span><span class="s2"> rules.</span>
 <span class="s2">"""</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"&lt;&lt;BEGIN OF PROMPT&gt;&gt;"</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">instruction</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"&lt;&lt;END OF PROMPT&gt;&gt;"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">instruction</span>
 </pre></div>
 </div>
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=502933ab">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -7787,44 +7679,248 @@ a.anchor-link {
 <div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-ipython3"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="n">prompt</span><span class="p">)</span>
-</pre></div>
-</div>
-</div>
-</div>
-</div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
-<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
-<div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-ipython3"><pre><span></span><span class="n">rule</span> <span class="o">=</span> <span class="s2">"""∨(⏚(∅), ⓑ(◎(III)))"""</span>
-</pre></div>
-</div>
-</div>
-</div>
-</div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
-<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
-<div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-ipython3"><pre><span></span><span class="kn">from</span> <span class="nn">core.dsl_symbolic_interpreter</span> <span class="kn">import</span> <span class="n">SymbolicRuleParser</span>
-<span class="kn">from</span> <span class="nn">core.dsl_symbolic_executor</span> <span class="kn">import</span> <span class="n">DSLExecutor</span>
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">random</span>
 
+<span class="nb">print</span><span class="p">(</span><span class="s2">"--- Starting Bulk DSL Rule Generation Process ---"</span><span class="p">)</span>
+
+<span class="n">openrouter_client</span> <span class="o">=</span> <span class="n">OpenRouterClient</span><span class="p">(</span>
+    <span class="c1"># model="meta-llama/llama-3.1-70b-instruct",</span>
+    <span class="c1"># model="deepseek/deepseek-r1-0528-qwen3-8b:free",</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="s2">"mistralai/mistral-small-3.2-24b-instruct"</span><span class="p">,</span>
+    <span class="c1"># model = "mistralai/mixtral-8x7b-instruct",</span>
+    <span class="n">temperature</span><span class="o">=</span><span class="mf">0.8</span><span class="p">)</span>
+
+<span class="n">total_rules_needed</span> <span class="o">=</span> <span class="mi">1000</span>
+<span class="n">rules_per_batch</span> <span class="o">=</span> <span class="mi">20</span>
+<span class="n">save_interval</span> <span class="o">=</span><span class="mi">5</span>
+<span class="n">output_file</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">"generated_dsl_rules.txt"</span><span class="p">)</span>
+
+<span class="n">complexity_prompts</span> <span class="o">=</span> <span class="p">[</span>
+<span class="c1">#   # --- Level 1: Foundation &amp; Basic Operations ---</span>
+<span class="c1">#     "simple, involving one or two operations like ⇒ or ↔, and simple compositions with ⟹, sometimes including literals like I or ∅.",</span>
+<span class="c1">#     "simple, focusing on basic operations like ⇒, ↔, ↕, and their direct application with Roman numerals (I-X) and ∅ as arguments.",</span>
+<span class="c1">#     "simple, emphasizing rules that involve the ⇌ operator with basic symbolic inputs or simple ⇒ expressions.",</span>
+<span class="c1">#     "simple, generating rules that only use constant values (I-X, ∅) as inputs to single-arity or binary operators.",</span>
+<span class="c1">#     "simple, strictly focusing on rules that map one literal value to another using '⇒', ensuring diversity in value pairs.",</span>
+
+<span class="c1">#     # --- Level 2: Basic Composition &amp; Argument Variety ---</span>
+<span class="c1">#     "moderate, involving up to two nested operations, primarily using ⇒, ↔, ↕, and ⟹, with mixed literal and simple symbolic arguments.",</span>
+<span class="c1">#     "moderate, focusing on rules that use a diverse set of arguments, including Roman numerals I-X, ∅, and complex nested sub-expressions as arguments.",</span>
+<span class="c1">#     "moderate, prioritizing rules that involve comparison operators like = or &lt;, applied to numeric literals or results of simple operations.",</span>
+<span class="c1">#     "moderate, focusing on rules that perform basic arithmetic operations like ⊞, ⊟, ⊠ on literals or simple expressions, with minimal nesting (1-2 levels).",</span>
+<span class="c1">#     "moderate, generating rules that apply transformation operators like ⊚ (compose) or ⌖ (apply) to symbolic inputs or outputs of simple operations.",</span>
+<span class="c1">#     "moderate, emphasizing the use of aggregation operators like ⅀ (sum) or ∏ (product) on sets of literals or results of simple transformations.",</span>
+<span class="c1">#     "moderate, exploring rules that generate constant outputs (e.g., always returning ∅ or a specific Roman numeral) based on simple operations.",</span>
+<span class="c1">#     "moderate, focusing on rules that use the ⊝ (complement/negation) operator applied to other simple DSL expressions.",</span>
+
+    <span class="c1"># --- Level 3: Intermediate Nesting &amp; Broader Operator Set ---</span>
+    <span class="c1"># Example for '007bbfb7' insights:</span>
+    <span class="s2">"complex, focus on rules that use sequence (`⧎`) or conditional (`⟹`) operations where arguments are themselves complex transformations or logical checks (e.g., `◨`, `⬒`). Incorporate operators like `⊕` (sum/combine) in nested structures. Aim for 3-4 levels of nesting."</span><span class="p">,</span>
+
+    <span class="c1"># Example for '00d62c1b' insights:</span>
+    <span class="s2">"complex, generate rules that integrate logical checks (`∨`, `⏚`, `ⓑ`, `◎`) within nested `⟹` or `⧎` structures. Explore patterns where conditions are chained, leading to complex control flow."</span><span class="p">,</span>
+
+    <span class="c1"># --- Level 4: Advanced Composition &amp; Specific ARC Concepts ---</span>
+    <span class="c1"># Example for '009d5c81' insights:</span>
+    <span class="s2">"advanced, emphasize rules using `◫` (switch/case-like) with `⧈` (pattern matching) and multiple conditional branches, where each branch contains a distinct, nested sub-rule. Maximize the number of branches and the complexity within each."</span><span class="p">,</span>
+
+    <span class="c1"># Example for '00dbd492' insights:</span>
+    <span class="s2">"advanced, generate highly unique and elaborate DSL programs that involve recursive application of operations like `⌖` (apply/map) to literal grid structures (`▦`). Focus on rules that show a clear pattern of transformation applied to progressively smaller or modified data. These rules should be very long and demonstrate deep, structured repetition of complex sub-patterns. Aim for 5+ levels of logical nesting."</span><span class="p">,</span>
+
+    <span class="c1"># General Advanced prompt:</span>
+    <span class="s2">"advanced, construct rules with maximal nesting (5+ levels), integrating a broad spectrum of DSL commands, including arithmetic, logical, comparison, transformation, and pattern matching operators. The structure should reflect a multi-step problem-solving process."</span><span class="p">,</span>
+
+<span class="p">]</span>
+<span class="n">switch_complexity_every_n_batches</span> <span class="o">=</span> <span class="mi">1</span>
+
+<span class="n">target_op</span> <span class="o">=</span> <span class="kc">None</span>
+
+<span class="n">all_validated_rules</span> <span class="o">=</span> <span class="p">[]</span>
 <span class="n">parser</span> <span class="o">=</span> <span class="n">SymbolicRuleParser</span><span class="p">()</span>
+
+<span class="k">if</span> <span class="n">output_file</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">output_file</span><span class="p">,</span> <span class="s1">'r'</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">existing_rules</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">f</span> <span class="k">if</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+    <span class="n">all_validated_rules</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">existing_rules</span><span class="p">))</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Resuming generation. Loaded </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">all_validated_rules</span><span class="p">)</span><span class="si">}</span><span class="s2"> existing rules from </span><span class="si">{</span><span class="n">output_file</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Starting new generation. Output will be saved to </span><span class="si">{</span><span class="n">output_file</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">### Target: </span><span class="si">{</span><span class="n">total_rules_needed</span><span class="si">}</span><span class="s2"> valid rules. Requesting </span><span class="si">{</span><span class="n">rules_per_batch</span><span class="si">}</span><span class="s2"> per batch."</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"### Complexity Prompts Defined: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">complexity_prompts</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"### Switching complexity every </span><span class="si">{</span><span class="n">switch_complexity_every_n_batches</span><span class="si">}</span><span class="s2"> batches."</span><span class="p">)</span>
+<span class="k">if</span> <span class="n">target_op</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"### Target Command: '</span><span class="si">{</span><span class="n">target_op</span><span class="si">}</span><span class="s2">'"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">Cell 4 executed: Bulk generation configuration and initialization complete."</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=188f877d">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+<div class="cm-editor cm-s-jupyter">
+<div class="highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">random</span>
+
+    
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"--- Beginning LLM Calls and Validation Loop ---"</span><span class="p">)</span>
+<span class="n">loop_count</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="n">current_complexity_prompt</span> <span class="o">=</span> <span class="kc">None</span>
+
+<span class="n">MAX_RETRIES</span> <span class="o">=</span> <span class="mi">5</span> 
+<span class="n">INITIAL_BACKOFF_SECONDS</span> <span class="o">=</span> <span class="mi">5</span> 
+
+<span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="n">all_validated_rules</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">total_rules_needed</span><span class="p">:</span>
+    <span class="n">loop_count</span> <span class="o">+=</span> <span class="mi">1</span>
+
+    <span class="k">if</span> <span class="n">loop_count</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">or</span> <span class="p">(</span><span class="n">loop_count</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="n">switch_complexity_every_n_batches</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">chosen_complexity</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">complexity_prompts</span><span class="p">)</span>
+        <span class="n">current_complexity_prompt</span> <span class="o">=</span> <span class="n">chosen_complexity</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">--- Switching Complexity! ---"</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"New complexity focus: '</span><span class="si">{</span><span class="n">current_complexity_prompt</span><span class="si">}</span><span class="s2">'"</span><span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">--- Batch </span><span class="si">{</span><span class="n">loop_count</span><span class="si">}</span><span class="s2"> --- (Current valid rules: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">all_validated_rules</span><span class="p">)</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">total_rules_needed</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
+
+    <span class="n">generation_prompt</span> <span class="o">=</span> <span class="n">create_pure_rule_generation_prompt</span><span class="p">(</span>
+        <span class="n">num_rules_to_generate</span><span class="o">=</span><span class="n">rules_per_batch</span><span class="p">,</span>
+        <span class="n">complexity_focus</span><span class="o">=</span><span class="n">current_complexity_prompt</span><span class="p">,</span>
+        <span class="n">target_command</span><span class="o">=</span><span class="n">target_op</span>
+    <span class="p">)</span>
+
+    <span class="n">generated_text</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">retries</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">while</span> <span class="n">retries</span> <span class="o">&lt;</span> <span class="n">MAX_RETRIES</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Calling LLM for </span><span class="si">{</span><span class="n">rules_per_batch</span><span class="si">}</span><span class="s2"> rules (Attempt </span><span class="si">{</span><span class="n">retries</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">MAX_RETRIES</span><span class="si">}</span><span class="s2">)..."</span><span class="p">)</span>
+            <span class="n">generated_text</span> <span class="o">=</span> <span class="n">openrouter_client</span><span class="p">(</span>
+                <span class="n">generation_prompt</span>
+            <span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">--- RAW LLM OUTPUT (Batch </span><span class="si">{</span><span class="n">loop_count</span><span class="si">}</span><span class="s2">) ---"</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">generated_text</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"--- END RAW OUTPUT ---</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">generated_text</span><span class="p">:</span>
+                <span class="k">break</span> 
+            <span class="k">else</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s2">"LLM returned empty text. Retrying..."</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"LLM call failed for batch </span><span class="si">{</span><span class="n">loop_count</span><span class="si">}</span><span class="s2"> (Attempt </span><span class="si">{</span><span class="n">retries</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">MAX_RETRIES</span><span class="si">}</span><span class="s2">): </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+        <span class="n">retries</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">if</span> <span class="n">retries</span> <span class="o">&lt;</span> <span class="n">MAX_RETRIES</span><span class="p">:</span>
+            <span class="n">wait_time</span> <span class="o">=</span> <span class="n">INITIAL_BACKOFF_SECONDS</span> <span class="o">*</span> <span class="p">(</span><span class="mi">2</span> <span class="o">**</span> <span class="p">(</span><span class="n">retries</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span> <span class="c1"># Exponential backoff</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Waiting </span><span class="si">{</span><span class="n">wait_time</span><span class="si">}</span><span class="s2"> seconds before retrying..."</span><span class="p">)</span>
+            <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">wait_time</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Max retries (</span><span class="si">{</span><span class="n">MAX_RETRIES</span><span class="si">}</span><span class="s2">) reached for batch </span><span class="si">{</span><span class="n">loop_count</span><span class="si">}</span><span class="s2">. Skipping this batch."</span><span class="p">)</span>
+            <span class="k">break</span> <span class="c1"># Exit retry loop, no more attempts for this batch</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">generated_text</span><span class="p">:</span> <span class="c1"># If after all retries, still no text</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Skipping batch </span><span class="si">{</span><span class="n">loop_count</span><span class="si">}</span><span class="s2"> due to persistent LLM errors."</span><span class="p">)</span>
+        <span class="k">continue</span> <span class="c1"># Skip to next outer loop iteration (next batch)</span>
+
+    <span class="n">generated_rules_list</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">generated_text</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">'</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">'#'</span><span class="p">)</span>
+    <span class="p">]</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">generated_rules_list</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">"No parsable rules found in raw LLM output for this batch. Retrying in next loop."</span><span class="p">)</span>
+        <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+        <span class="k">continue</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Attempting to Parse and Validate </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">generated_rules_list</span><span class="p">)</span><span class="si">}</span><span class="s2"> DSL Rules from LLM response..."</span><span class="p">)</span>
+
+    <span class="n">batch_valid_count</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">rule_str</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">generated_rules_list</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">rule_str</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">all_validated_rules</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">parser</span><span class="o">.</span><span class="n">parse_rule</span><span class="p">(</span><span class="n">rule_str</span><span class="p">)</span>
+                <span class="n">all_validated_rules</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">rule_str</span><span class="p">)</span>
+                <span class="n">batch_valid_count</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="k">pass</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Batch </span><span class="si">{</span><span class="n">loop_count</span><span class="si">}</span><span class="s2"> Summary: </span><span class="si">{</span><span class="n">batch_valid_count</span><span class="si">}</span><span class="s2"> new unique valid rules added. Total valid rules: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">all_validated_rules</span><span class="p">)</span><span class="si">}</span><span class="s2">."</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">all_validated_rules</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">total_rules_needed</span><span class="p">:</span>
+        <span class="k">pass</span>
+    <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">all_validated_rules</span><span class="p">)</span> <span class="o">//</span> <span class="n">save_interval</span> <span class="o">&gt;</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">all_validated_rules</span><span class="p">)</span> <span class="o">-</span> <span class="n">batch_valid_count</span><span class="p">)</span> <span class="o">//</span> <span class="n">save_interval</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Saving </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">all_validated_rules</span><span class="p">)</span><span class="si">}</span><span class="s2"> rules to </span><span class="si">{</span><span class="n">output_file</span><span class="si">}</span><span class="s2">..."</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">output_file</span><span class="p">,</span> <span class="s1">'w'</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">rule</span> <span class="ow">in</span> <span class="n">all_validated_rules</span><span class="p">:</span>
+                    <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">rule</span> <span class="o">+</span> <span class="s1">'</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">"Save complete."</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">IOError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Error saving rules to file: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">--- Generation Loop Complete! ---"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Final count: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">all_validated_rules</span><span class="p">)</span><span class="si">}</span><span class="s2"> unique valid rules collected."</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Performing final save of all </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">all_validated_rules</span><span class="p">)</span><span class="si">}</span><span class="s2"> rules to </span><span class="si">{</span><span class="n">output_file</span><span class="si">}</span><span class="s2">..."</span><span class="p">)</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">output_file</span><span class="p">,</span> <span class="s1">'w'</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">rule</span> <span class="ow">in</span> <span class="n">all_validated_rules</span><span class="p">:</span>
+            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">rule</span> <span class="o">+</span> <span class="s1">'</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"Final save complete."</span><span class="p">)</span>
+<span class="k">except</span> <span class="ne">IOError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Error during final save: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="s2">"Cell 5 executed: Bulk rule generation loop completed, rules saved."</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=73412ca4">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+<div class="cm-editor cm-s-jupyter">
+<div class="highlight hl-ipython3"><pre><span></span> 
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=db045fa1">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+<div class="cm-editor cm-s-jupyter">
+<div class="highlight hl-ipython3"><pre><span></span> 
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=0183decf">
+<div class="jp-Cell-inputWrapper" tabindex="0">
+<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
+</div>
+<div class="jp-InputArea jp-Cell-inputArea">
+<div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
+<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
+<div class="cm-editor cm-s-jupyter">
+<div class="highlight hl-ipython3"><pre><span></span> 
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=89670b5c">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -7838,76 +7934,7 @@ a.anchor-link {
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
-<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
-<div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-ipython3"><pre><span></span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">--- Evaluating Rule: '</span><span class="si">{</span><span class="n">rule</span><span class="si">}</span><span class="s2">' for Puzzle ID: </span><span class="si">{</span><span class="n">puzzle_id</span><span class="si">}</span><span class="s2"> ---"</span><span class="p">)</span>
-
-<span class="nb">print</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">--- Training Examples Evaluation ---"</span><span class="p">)</span>
-<span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">example</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">puzzle</span><span class="p">[</span><span class="s2">"train"</span><span class="p">]):</span>
-    <span class="n">input_grid_np</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">example</span><span class="p">[</span><span class="s2">"input"</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
-    <span class="n">output_grid_np</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">example</span><span class="p">[</span><span class="s2">"output"</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
-
-    <span class="n">score</span> <span class="o">=</span> <span class="mf">0.0</span>
-    <span class="n">result</span> <span class="o">=</span> <span class="kc">None</span> <span class="c1"># Initialize result to None</span>
-
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">--- Training Example </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2"> ---"</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">"Input Grid:"</span><span class="p">)</span>
-    <span class="n">pprint</span><span class="p">(</span><span class="n">input_grid_np</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">"Expected Output Grid:"</span><span class="p">)</span>
-    <span class="n">pprint</span><span class="p">(</span><span class="n">output_grid_np</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
-
-    <span class="k">try</span><span class="p">:</span>
-        <span class="c1"># These are the three lines you requested, slightly adapted for loop</span>
-        <span class="n">command</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_rule</span><span class="p">(</span><span class="n">rule</span><span class="p">)</span> 
-        <span class="n">executor</span> <span class="o">=</span> <span class="n">DSLExecutor</span><span class="p">(</span>
-            <span class="n">root_command</span><span class="o">=</span><span class="n">command</span><span class="p">,</span>
-            <span class="n">initial_puzzle_input</span><span class="o">=</span><span class="n">input_grid_np</span><span class="p">,</span>
-        <span class="p">)</span>
-        <span class="n">result</span><span class="o">=</span> <span class="n">executor</span><span class="o">.</span><span class="n">execute_program</span><span class="p">()</span>
-        
-        <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="n">output_grid_np</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
-            <span class="n">compare</span> <span class="o">=</span> <span class="n">result</span> <span class="o">==</span> <span class="n">output_grid_np</span>
-            <span class="n">score</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">compare</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">output_grid_np</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">output_grid_np</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
-            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Training Example </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2"> Score: </span><span class="si">{</span><span class="n">score</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Training Example </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2"> Score: 0.0000 (Shape mismatch: Expected </span><span class="si">{</span><span class="n">output_grid_np</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">, Got </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">shape</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
-            
-    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Training Example </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2"> Score: 0.0000 (Error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Parsing/Execution Error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span> <span class="c1"># Print the specific error for debugging</span>
-
-    <span class="k">if</span> <span class="n">result</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">"Generated Output Grid:"</span><span class="p">)</span>
-        <span class="n">pprint</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">tolist</span><span class="p">())</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s2">"No Generated Output Grid (due to error or parse failure)."</span><span class="p">)</span>
-</pre></div>
-</div>
-</div>
-</div>
-</div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
-<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
-<div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-ipython3"><pre><span></span><span class="c1"># print(f"\nAll training examples passed for puzzle '{puzzle_id}'. Saving rule.")</span>
-<span class="c1"># save_solution_to_json(puzzle_id, rule, solved_puzzles_json_path)</span>
-</pre></div>
-</div>
-</div>
-</div>
-</div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=c84cb738">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
@@ -7921,35 +7948,7 @@ a.anchor-link {
 </div>
 </div>
 </div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
-<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
-<div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-ipython3"><pre><span></span> 
-</pre></div>
-</div>
-</div>
-</div>
-</div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs">
-<div class="jp-Cell-inputWrapper" tabindex="0">
-<div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
-</div>
-<div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
-<div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
-<div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-ipython3"><pre><span></span> 
-</pre></div>
-</div>
-</div>
-</div>
-</div>
-</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs">
+</div><div class="jp-Cell jp-CodeCell jp-Notebook-cell jp-mod-noOutputs" id="cell-id=3dfd63d5">
 <div class="jp-Cell-inputWrapper" tabindex="0">
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
