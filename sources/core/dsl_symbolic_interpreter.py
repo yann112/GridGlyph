@@ -212,14 +212,15 @@ SYMBOL_RULES = {
             "argument_command": "argument_command_str"
         },
     },
-    "reverse_row": {
-        "pattern": r"^↢(?:\((?P<arg_content>.+)\))?$",
+    "rotate_grid_clockwise": {
+        "pattern": fr"^↻\((?P<num_rotations>{ROMAN_INDEX_PATTERN})(?:,\s*(?P<arg_content>.+))?\)$",
         "transform_params": lambda m: {
+            "num_quarter_rotations": roman_to_int(m["num_rotations"]),
             "argument_command_str": m.group("arg_content") if m.group("arg_content") else None
         },
         "nested_commands": {
             "argument_command": "argument_command_str"
-        },
+        }
     },
     "shift_row_or_column": {
         "pattern": fr"^(?P<direction>⮝|⮞)\((?P<idx>{ROMAN_INDEX_PATTERN}),\s*(?P<shift_val>{ROMAN_VALUE_PATTERN})\)$",
@@ -240,12 +241,30 @@ SYMBOL_RULES = {
             "inner_command": "inner_command_str"
         }
     },
-    "swap_rows_or_columns": {
-        "pattern": fr"^⇄\((?P<idx1>{ROMAN_INDEX_PATTERN}),\s*(?P<idx2>{ROMAN_INDEX_PATTERN})\)$",
+    "apply_to_column": {
+        "pattern": fr"^↓\((?P<col_idx>{ROMAN_INDEX_PATTERN}),\s*(?P<inner_command_str>.+)\)$",
+        "transform_params": lambda m: {
+            "col_index": roman_to_int(m["col_idx"]) - 1,
+            "inner_command_str": m["inner_command_str"]
+        },
+        "nested_commands": {
+            "inner_command": "inner_command_str"
+        }
+    },
+    "swap_rows": {
+        "pattern": fr"^⇅\((?P<idx1>{ROMAN_INDEX_PATTERN}),\s*(?P<idx2>{ROMAN_INDEX_PATTERN})\)$",
         "transform_params": lambda m: {
             "row_swap": (roman_to_int(m["idx1"]) - 1, roman_to_int(m["idx2"]) - 1),
-            "col_swap": None,
+            "col_swap": None, 
             "swap_type": "rows"
+        }
+    },
+    "swap_columns": {
+        "pattern": fr"^⇆\((?P<idx1>{ROMAN_INDEX_PATTERN}),\s*(?P<idx2>{ROMAN_INDEX_PATTERN})\)$",
+        "transform_params": lambda m: {
+            "row_swap": None,
+            "col_swap": (roman_to_int(m["idx1"]) - 1, roman_to_int(m["idx2"]) - 1),
+            "swap_type": "columns"
         }
     },
     "repeat_grid_horizontal": {

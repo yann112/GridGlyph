@@ -205,6 +205,72 @@ class FlipGridVertically(AbstractTransformationCommand):
          return "Mirrors the grid along the horizontal axis (top becomes bottom)."
 
 
+class RotateGridClockwise(AbstractTransformationCommand):
+    synthesis_rules = {
+        "type": "atomic",
+        "requires_inner": False,
+        "parameter_ranges": {
+            "num_quarter_rotations": (1, 4)
+        }
+    }
+
+    def __init__(
+        self,
+        num_quarter_rotations: int,
+        argument_command: Optional[AbstractTransformationCommand] = None,
+        logger: logging.Logger = None
+    ):
+        super().__init__(logger)
+        if not 1 <= num_quarter_rotations <= 4:
+            raise ValueError("Number of quarter rotations must be between 1 and 4.")
+        self.num_quarter_rotations = num_quarter_rotations
+        self.argument_command = argument_command
+
+    def execute(self, input_grid: np.ndarray) -> np.ndarray:
+        if self.argument_command:
+            grid_to_rotate = self.argument_command.execute(input_grid)
+        else:
+            grid_to_rotate = input_grid
+        
+        k_for_rot90 = (4 - self.num_quarter_rotations) % 4
+        
+        return np.rot90(grid_to_rotate, k=k_for_rot90)
+
+    def get_children_commands(self) -> Iterator['AbstractTransformationCommand']:
+        if self.argument_command:
+            yield self.argument_command
+
+    @classmethod
+    def describe(cls) -> str:
+        return """
+            Rotates the grid clockwise by a specified number of quarter turns (90 degrees per turn).
+            
+            Can optionally apply the rotation to the result of an inner command.
+            
+            Parameters:
+            - num_quarter_rotations: Integer (1-4) representing the number of 90-degree clockwise rotations.
+            - argument_command: Optional inner command whose output will be rotated. If None, rotates the input grid.
+
+            Example:
+            Input: [[1, 2],
+                    [3, 4]]
+            Command: ↻(I)  # Rotate 90 degrees clockwise
+            Output: [[3, 1],
+                     [4, 2]]
+            
+            Command: ↻(II) # Rotate 180 degrees clockwise
+            Output: [[4, 3],
+                     [2, 1]]
+
+            Command: ↻(I, ↔) # Apply Flip Horizontally, then rotate 90 degrees clockwise
+            Input: [[1, 2],
+                    [3, 4]]
+            Intermediate (↔): [[2, 1],
+                               [4, 3]]
+            Output (↻(I)): [[4, 2],
+                            [3, 1]]
+        """
+        
 class Alternate(AbstractTransformationCommand):
     synthesis_rules = {
         "type": "combinator",
@@ -310,41 +376,6 @@ class SwapRowsOrColumns(AbstractTransformationCommand):
                     [4, 5, 6]]            [3, 2, 1]]
         """
 
-
-class ReverseRow(AbstractTransformationCommand):
-    synthesis_rules = {
-        "type": "atomic",
-        "requires_inner": False,
-        "parameter_ranges": {}
-    }
-
-    def __init__(self, argument_command: Optional[AbstractTransformationCommand] = None, logger: logging.Logger = None):
-        super().__init__(logger)
-        self.argument_command = argument_command 
-
-    def execute(self, input_grid: np.ndarray) -> np.ndarray:
-        self.logger.debug("Executing ReverseRow on all rows.")
-        if self.argument_command:
-            grid_to_reverse = self.argument_command.execute(input_grid)
-        else:
-            grid_to_reverse = input_grid
-        return grid_to_reverse[:, ::-1]
-
-    def get_children_commands(self) -> Iterator['AbstractTransformationCommand']:
-        if self.argument_command:
-            yield self.argument_command
-            
-    @classmethod
-    def describe(cls) -> str:
-        return """
-        Reverses the elements in every row of the grid.
-        Can apply to the current input grid or the result of an argument command.
-        Example:
-        Input: [[1, 2, 3], [4, 5, 6]]
-        Command: ReverseRow() or ReverseRow(InputGridReference())
-        Output: [[3, 2, 1], [6, 5, 4]]
-        """
-
 class ApplyToRow(AbstractTransformationCommand):
     synthesis_rules = {
         "type": "combinator",
@@ -388,7 +419,70 @@ class ApplyToRow(AbstractTransformationCommand):
                     [6, 5, 4]]
         """
     
+class ApplyToColumn(AbstractTransformationCommand):
+    synthesis_rules = {
+        "type": "combinator",
+        "requires_inner": True,
+        "parameter_ranges": {
+            "col_index": (0, 30)
+        }
+    }
 
+    def __init__(self, inner_command: AbstractTransformationCommand, col_index: int, logger: logging.Logger = None):
+        super().__init__(logger)
+        self.inner_command = inner_command
+        self.col_index = col_index
+
+    def execute(self, input_grid: np.ndarray) -> np.ndarray:
+        output_grid = input_grid.copy()
+        
+        if not (0 <= self.col_index < output_grid.shape[1]):
+            self.logger.warning(
+                f"Column index {self.col_index} out of bounds for grid with {output_grid.shape[1]} columns. "
+                "Returning original grid."
+            )
+            return input_grid
+            
+        col_to_transform = output_grid[:, self.col_index].reshape(-1, 1)
+        
+        transformed_col_grid = self.inner_command.execute(col_to_transform)
+        
+        if transformed_col_grid.ndim == 1:
+            transformed_col_grid = transformed_col_grid.reshape(-1, 1)
+        elif transformed_col_grid.shape[1] != 1:
+            self.logger.error(
+                f"Inner command returned a grid with {transformed_col_grid.shape[1]} columns "
+                f"when only 1 was expected for column transformation. Attempting to use the first column."
+            )
+            transformed_col_grid = transformed_col_grid[:, 0].reshape(-1, 1)
+
+        output_grid[:, self.col_index] = transformed_col_grid.flatten()
+
+        return output_grid
+
+    def get_children_commands(self) -> Iterator['AbstractTransformationCommand']:
+        yield self.inner_command
+
+    @classmethod
+    def describe(cls) -> str:
+        return """
+            Applies a given transformation to a specific column in the grid.
+            
+            This allows inner commands to operate on a single column, which is passed as a (Height, 1) grid.
+            
+            Parameters:
+            - inner_command: The transformation command to apply to the column.
+            - col_index: The zero-based index of the column to transform.
+
+            Example:
+            Input: [[1, 2],
+                    [3, 4],
+                    [5, 6]]
+            Command: ↓(I, FlipGridVertically())  # Apply FlipGridVertically to the first column
+            Output: [[5, 2],
+                     [3, 4],
+                     [1, 6]]
+        """
 class ConditionalTransform(AbstractTransformationCommand):
     synthesis_rules = {
         "type": "combinator",
