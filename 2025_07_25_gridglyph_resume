@@ -73,7 +73,7 @@ GridGlyph uses a custom DSL with 40+ symbolic commands:
 - **1000 Complex Rules**: Generated sophisticated transformation rules
 
 ### Training Data Strategy
-- **Atomic Foundation**: 121 × 50 derivations × 10 symbol mappings = 60,500 examples
+- **Atomic Foundation**: 120 × 50 derivations × 10 symbol set mappings * 3 symbols mapping inside set =  180 000  examples
 - **Specialized Grids**: Each complex rule paired with minimal, focused demonstration grids
 - **Quality Focus**: No noise, every example manually validated for correctness
 
@@ -117,10 +117,6 @@ GridGlyph uses a custom DSL with 40+ symbolic commands:
 - **Grounded**: Symbols map directly to executable functions
 - **Systematic**: Built from hand-validated atomic operations
 - **Specialized**: Focused training data, no noise or irrelevant patterns
-
-## Current Challenge
-
-The main bottleneck is generating meaningful grid examples for the 1000 complex rules. Each rule needs 5-10 minimal demonstration grids that clearly show the transformation logic without extraneous noise or patterns.
 
 ## Usage Context
 
