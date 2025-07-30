@@ -7527,6 +7527,11 @@ a.anchor-link {
 
 <span class="kn">from</span> <span class="nn">test_dsl_symbolic_executor</span> <span class="kn">import</span> <span class="n">TEST_CASES</span>
 <span class="kn">from</span> <span class="nn">core.dsl_symbolic_interpreter</span> <span class="kn">import</span> <span class="n">SYMBOL_RULES</span>
+<span class="kn">from</span> <span class="nn">utils.synthetic_grids</span> <span class="kn">import</span> <span class="p">(</span>
+        <span class="n">generate_single_random_grid</span><span class="p">,</span>
+        <span class="n">create_base_grid</span><span class="p">,</span>
+        <span class="n">generate_random_shape_grid</span><span class="p">,</span>
+        <span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -7716,12 +7721,30 @@ a.anchor-link {
 <div class="highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">random</span>
 
+<span class="k">def</span> <span class="nf">int_to_roman</span><span class="p">(</span><span class="n">num</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="n">mapping</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="mi">0</span><span class="p">:</span> <span class="s2">"∅"</span><span class="p">,</span> <span class="mi">1</span><span class="p">:</span> <span class="s1">'I'</span><span class="p">,</span> <span class="mi">2</span><span class="p">:</span> <span class="s1">'II'</span><span class="p">,</span> <span class="mi">3</span><span class="p">:</span> <span class="s1">'III'</span><span class="p">,</span> <span class="mi">4</span><span class="p">:</span> <span class="s1">'IV'</span><span class="p">,</span> <span class="mi">5</span><span class="p">:</span> <span class="s1">'V'</span><span class="p">,</span>
+        <span class="mi">6</span><span class="p">:</span> <span class="s1">'VI'</span><span class="p">,</span> <span class="mi">7</span><span class="p">:</span> <span class="s1">'VII'</span><span class="p">,</span> <span class="mi">8</span><span class="p">:</span> <span class="s1">'VIII'</span><span class="p">,</span> <span class="mi">9</span><span class="p">:</span> <span class="s1">'IX'</span><span class="p">,</span> <span class="mi">10</span><span class="p">:</span> <span class="s1">'X'</span><span class="p">,</span>
+        <span class="mi">11</span><span class="p">:</span> <span class="s1">'XI'</span><span class="p">,</span> <span class="mi">12</span><span class="p">:</span> <span class="s1">'XII'</span><span class="p">,</span> <span class="mi">13</span><span class="p">:</span> <span class="s1">'XIII'</span><span class="p">,</span> <span class="mi">14</span><span class="p">:</span> <span class="s1">'XIV'</span><span class="p">,</span> <span class="mi">15</span><span class="p">:</span> <span class="s1">'XV'</span><span class="p">,</span>
+        <span class="mi">16</span><span class="p">:</span> <span class="s1">'XVI'</span><span class="p">,</span> <span class="mi">17</span><span class="p">:</span> <span class="s1">'XVII'</span><span class="p">,</span> <span class="mi">18</span><span class="p">:</span> <span class="s1">'XVIII'</span><span class="p">,</span> <span class="mi">19</span><span class="p">:</span> <span class="s1">'XIX'</span><span class="p">,</span> <span class="mi">20</span><span class="p">:</span> <span class="s1">'XX'</span><span class="p">,</span>
+        <span class="mi">21</span><span class="p">:</span> <span class="s1">'XXI'</span><span class="p">,</span> <span class="mi">22</span><span class="p">:</span> <span class="s1">'XXII'</span><span class="p">,</span> <span class="mi">23</span><span class="p">:</span> <span class="s1">'XXIII'</span><span class="p">,</span> <span class="mi">24</span><span class="p">:</span> <span class="s1">'XXIV'</span><span class="p">,</span> <span class="mi">25</span><span class="p">:</span> <span class="s1">'XXV'</span><span class="p">,</span>
+        <span class="mi">26</span><span class="p">:</span> <span class="s1">'XXVI'</span><span class="p">,</span> <span class="mi">27</span><span class="p">:</span> <span class="s1">'XXVII'</span><span class="p">,</span> <span class="mi">28</span><span class="p">:</span> <span class="s1">'XXVIII'</span><span class="p">,</span> <span class="mi">29</span><span class="p">:</span> <span class="s1">'XXIX'</span><span class="p">,</span> <span class="mi">30</span><span class="p">:</span> <span class="s1">'XXX'</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="n">mapping</span><span class="p">[</span><span class="n">num</span><span class="p">]</span>
+
+        
 <span class="k">def</span> <span class="nf">roman_to_int</span><span class="p">(</span><span class="n">roman_numeral</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
     <span class="n">mapping</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s1">'∅'</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="c1"># Add zero mapping</span>
         <span class="s1">'I'</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s1">'II'</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span> <span class="s1">'III'</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span> <span class="s1">'IV'</span><span class="p">:</span> <span class="mi">4</span><span class="p">,</span> <span class="s1">'V'</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span>
-        <span class="s1">'VI'</span><span class="p">:</span> <span class="mi">6</span><span class="p">,</span> <span class="s1">'VII'</span><span class="p">:</span> <span class="mi">7</span><span class="p">,</span> <span class="s1">'VIII'</span><span class="p">:</span> <span class="mi">8</span><span class="p">,</span> <span class="s1">'IX'</span><span class="p">:</span> <span class="mi">9</span><span class="p">,</span> <span class="s1">'X'</span><span class="p">:</span> <span class="mi">10</span>
+        <span class="s1">'VI'</span><span class="p">:</span> <span class="mi">6</span><span class="p">,</span> <span class="s1">'VII'</span><span class="p">:</span> <span class="mi">7</span><span class="p">,</span> <span class="s1">'VIII'</span><span class="p">:</span> <span class="mi">8</span><span class="p">,</span> <span class="s1">'IX'</span><span class="p">:</span> <span class="mi">9</span><span class="p">,</span> <span class="s1">'X'</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span>
+        <span class="s1">'XI'</span><span class="p">:</span> <span class="mi">11</span><span class="p">,</span> <span class="s1">'XII'</span><span class="p">:</span> <span class="mi">12</span><span class="p">,</span> <span class="s1">'XIII'</span><span class="p">:</span> <span class="mi">13</span><span class="p">,</span> <span class="s1">'XIV'</span><span class="p">:</span> <span class="mi">14</span><span class="p">,</span> <span class="s1">'XV'</span><span class="p">:</span> <span class="mi">15</span><span class="p">,</span>
+        <span class="s1">'XVI'</span><span class="p">:</span> <span class="mi">16</span><span class="p">,</span> <span class="s1">'XVII'</span><span class="p">:</span> <span class="mi">17</span><span class="p">,</span> <span class="s1">'XVIII'</span><span class="p">:</span> <span class="mi">18</span><span class="p">,</span> <span class="s1">'XIX'</span><span class="p">:</span> <span class="mi">19</span><span class="p">,</span> <span class="s1">'XX'</span><span class="p">:</span> <span class="mi">20</span><span class="p">,</span>
+        <span class="s1">'XXI'</span><span class="p">:</span> <span class="mi">21</span><span class="p">,</span> <span class="s1">'XXII'</span><span class="p">:</span> <span class="mi">22</span><span class="p">,</span> <span class="s1">'XXIII'</span><span class="p">:</span> <span class="mi">23</span><span class="p">,</span> <span class="s1">'XXIV'</span><span class="p">:</span> <span class="mi">24</span><span class="p">,</span> <span class="s1">'XXV'</span><span class="p">:</span> <span class="mi">25</span><span class="p">,</span>
+        <span class="s1">'XXVI'</span><span class="p">:</span> <span class="mi">26</span><span class="p">,</span> <span class="s1">'XXVII'</span><span class="p">:</span> <span class="mi">27</span><span class="p">,</span> <span class="s1">'XXVIII'</span><span class="p">:</span> <span class="mi">28</span><span class="p">,</span> <span class="s1">'XXIX'</span><span class="p">:</span> <span class="mi">29</span><span class="p">,</span> <span class="s1">'XXX'</span><span class="p">:</span> <span class="mi">30</span>
     <span class="p">}</span>
-    <span class="k">return</span> <span class="n">mapping</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">roman_numeral</span><span class="o">.</span><span class="n">upper</span><span class="p">(),</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">mapping</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">roman_numeral</span><span class="o">.</span><span class="n">upper</span><span class="p">(),</span> <span class="kc">None</span><span class="p">)</span>
+
 
 <span class="k">def</span> <span class="nf">is_rule_compatible_with_grid</span><span class="p">(</span><span class="n">dsl_rule_str</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">grid_shape</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
     <span class="n">rows</span><span class="p">,</span> <span class="n">cols</span> <span class="o">=</span> <span class="n">grid_shape</span>
@@ -7746,28 +7769,6 @@ a.anchor-link {
         
     <span class="k">return</span> <span class="kc">True</span>
 
-<span class="k">def</span> <span class="nf">generate_single_random_grid</span><span class="p">(</span><span class="n">original_grid_shape</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">,</span> <span class="n">max_dim</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">30</span><span class="p">,</span> <span class="n">num_range</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">9</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-    <span class="n">rows_orig</span><span class="p">,</span> <span class="n">cols_orig</span> <span class="o">=</span> <span class="n">original_grid_shape</span> <span class="k">if</span> <span class="n">original_grid_shape</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">original_grid_shape</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span> <span class="k">else</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">)</span>
-
-    <span class="k">if</span> <span class="n">random</span><span class="o">.</span><span class="n">random</span><span class="p">()</span> <span class="o">&lt;</span> <span class="mf">0.7</span><span class="p">:</span>
-        <span class="n">new_rows</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">max_dim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
-        <span class="n">new_cols</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">max_dim</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
-        <span class="n">new_values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">num_range</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span> <span class="n">size</span><span class="o">=</span><span class="n">new_rows</span> <span class="o">*</span> <span class="n">new_cols</span><span class="p">,</span> <span class="n">replace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="n">new_grid</span> <span class="o">=</span> <span class="n">new_values</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">new_rows</span><span class="p">,</span> <span class="n">new_cols</span><span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">rows_orig</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">cols_orig</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
-                <span class="n">new_values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">num_range</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span> <span class="n">size</span><span class="o">=</span><span class="n">rows_orig</span> <span class="o">*</span> <span class="n">cols_orig</span><span class="p">,</span> <span class="n">replace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-                <span class="n">temp_grid</span> <span class="o">=</span> <span class="n">new_values</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">rows_orig</span><span class="p">,</span> <span class="n">cols_orig</span><span class="p">)</span>
-                <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span><span class="n">temp_grid</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">rows_orig</span><span class="p">,</span> <span class="n">cols_orig</span><span class="p">)))</span> <span class="ow">or</span> <span class="n">np</span><span class="o">.</span><span class="n">array_equal</span><span class="p">(</span><span class="n">temp_grid</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">rows_orig</span><span class="p">,</span> <span class="n">cols_orig</span><span class="p">),</span> <span class="n">num_range</span><span class="p">)):</span>
-                    <span class="n">new_grid</span> <span class="o">=</span> <span class="n">temp_grid</span>
-                    <span class="k">break</span>
-            
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">new_grid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">num_range</span><span class="p">)]])</span>
-    
-    <span class="k">return</span> <span class="n">new_grid</span>
-
 <span class="k">def</span> <span class="nf">mutate_flip_rule</span><span class="p">(</span><span class="n">item</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">num_variants</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span> <span class="n">max_dim</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">30</span><span class="p">,</span> <span class="n">num_range</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">9</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]:</span>
     <span class="n">mutated_items</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="n">original_grid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">item</span><span class="p">[</span><span class="s1">'input_grid'</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
@@ -7779,27 +7780,167 @@ a.anchor-link {
 
     <span class="k">return</span> <span class="n">mutated_items</span>
 
-<span class="k">def</span> <span class="nf">mutate_for_indexed_rule</span><span class="p">(</span><span class="n">item</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">num_variants</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span> <span class="n">max_dim</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">30</span><span class="p">,</span> <span class="n">num_range</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">9</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]:</span>
-    <span class="n">valid_mutated_items</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="n">target_count</span> <span class="o">=</span> <span class="n">num_variants</span> <span class="o">-</span> <span class="mi">1</span>
-
+<span class="k">def</span> <span class="nf">mutate_swap_rule</span><span class="p">(</span><span class="n">item</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">num_variants</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span> <span class="n">max_dim</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">30</span><span class="p">,</span> <span class="n">num_range</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">9</span><span class="p">,</span> <span class="n">is_row_swap</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]:</span>
+    <span class="n">mutated_items</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="n">original_rule</span> <span class="o">=</span> <span class="n">item</span><span class="p">[</span><span class="s1">'dsl_rule'</span><span class="p">]</span>
+    <span class="n">pattern</span> <span class="o">=</span> <span class="sa">r</span><span class="s1">'⇅\((?P&lt;idx1&gt;[IVX]+),(?P&lt;idx2&gt;[IVX]+)\)'</span> <span class="k">if</span> <span class="n">is_row_swap</span> <span class="k">else</span> <span class="sa">r</span><span class="s1">'⇄\((?P&lt;idx1&gt;[IVX]+),(?P&lt;idx2&gt;[IVX]+)\)'</span>
+    <span class="n">sigil</span> <span class="o">=</span> <span class="s1">'⇅'</span> <span class="k">if</span> <span class="n">is_row_swap</span> <span class="k">else</span> <span class="s1">'⇄'</span>
     
+    <span class="n">match</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">pattern</span><span class="p">,</span> <span class="n">original_rule</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">match</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Warning: Could not parse swap rule: </span><span class="si">{</span><span class="n">original_rule</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">[]</span>
+    <span class="n">target_count</span> <span class="o">=</span> <span class="n">num_variants</span> <span class="o">-</span> <span class="mi">1</span>
+    <span class="n">attempts</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">max_attempts_per_valid_variant</span> <span class="o">=</span> <span class="mi">100</span>
+    <span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="n">mutated_items</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">target_count</span> <span class="ow">and</span> <span class="n">attempts</span> <span class="o">&lt;</span> <span class="n">max_attempts_per_valid_variant</span> <span class="o">*</span> <span class="n">target_count</span><span class="p">:</span>
+        <span class="n">candidate_grid_np</span> <span class="o">=</span> <span class="n">generate_single_random_grid</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">item</span><span class="p">[</span><span class="s1">'input_grid'</span><span class="p">])</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">max_dim</span><span class="p">,</span> <span class="n">num_range</span><span class="p">)</span>
+        <span class="n">dim_size</span> <span class="o">=</span> <span class="n">candidate_grid_np</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">is_row_swap</span> <span class="k">else</span> <span class="n">candidate_grid_np</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">dim_size</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">new_idx1_idx</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">dim_size</span><span class="p">)</span>
+            <span class="n">new_idx2_idx</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">dim_size</span><span class="p">)</span>
+            <span class="k">while</span> <span class="n">new_idx2_idx</span> <span class="o">==</span> <span class="n">new_idx1_idx</span><span class="p">:</span>
+                <span class="n">new_idx2_idx</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">dim_size</span><span class="p">)</span>
+            <span class="n">new_idx1_name</span> <span class="o">=</span> <span class="n">int_to_roman</span><span class="p">(</span><span class="n">new_idx1_idx</span><span class="p">)</span>
+            <span class="n">new_idx2_name</span> <span class="o">=</span> <span class="n">int_to_roman</span><span class="p">(</span><span class="n">new_idx2_idx</span><span class="p">)</span>
+            <span class="n">new_rule</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">sigil</span><span class="si">}</span><span class="s2">(</span><span class="si">{</span><span class="n">new_idx1_name</span><span class="si">}</span><span class="s2">,</span><span class="si">{</span><span class="n">new_idx2_name</span><span class="si">}</span><span class="s2">)"</span>
+            <span class="n">mutated_items</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+                <span class="s1">'input_grid'</span><span class="p">:</span> <span class="n">candidate_grid_np</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+                <span class="s1">'dsl_rule'</span><span class="p">:</span> <span class="n">new_rule</span>
+            <span class="p">})</span>
+        <span class="n">attempts</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">mutated_items</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">target_count</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Warning: mutate_swap_rule could not generate </span><span class="si">{</span><span class="n">target_count</span><span class="si">}</span><span class="s2"> valid mutations for rule '</span><span class="si">{</span><span class="n">original_rule</span><span class="si">}</span><span class="s2">'. Got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">mutated_items</span><span class="p">)</span><span class="si">}</span><span class="s2"> after </span><span class="si">{</span><span class="n">attempts</span><span class="si">}</span><span class="s2"> attempts."</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">mutated_items</span>
+
+<span class="k">def</span> <span class="nf">mutate_swap_row_rule</span><span class="p">(</span><span class="n">item</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">num_variants</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span> <span class="n">max_dim</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">30</span><span class="p">,</span> <span class="n">num_range</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">9</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]:</span>
+    <span class="k">return</span> <span class="n">mutate_swap_rule</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">num_variants</span><span class="p">,</span> <span class="n">max_dim</span><span class="p">,</span> <span class="n">num_range</span><span class="p">,</span> <span class="n">is_row_swap</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">mutate_swap_col_rule</span><span class="p">(</span><span class="n">item</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">num_variants</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span> <span class="n">max_dim</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">30</span><span class="p">,</span> <span class="n">num_range</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">9</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]:</span>
+    <span class="k">return</span> <span class="n">mutate_swap_rule</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">num_variants</span><span class="p">,</span> <span class="n">max_dim</span><span class="p">,</span> <span class="n">num_range</span><span class="p">,</span> <span class="n">is_row_swap</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">mutate_swap_value_rule</span><span class="p">(</span><span class="n">item</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">num_variants</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span> <span class="n">max_dim</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">30</span><span class="p">,</span> <span class="n">num_range</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">9</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Mutates a value swap rule (⇒(A, B)) by generating new grids and updating the values in the rule.</span>
+<span class="sd">    Ensures the 'from' value (A) exists in the new grid.</span>
+<span class="sd">    """</span>
+    <span class="n">mutated_items</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">original_rule</span> <span class="o">=</span> <span class="n">item</span><span class="p">[</span><span class="s1">'dsl_rule'</span><span class="p">]</span>
+    <span class="n">match</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="sa">r</span><span class="s1">'⇒\((?P&lt;from_val&gt;[^,]*),\s*(?P&lt;to_val&gt;[^)]*)\)'</span><span class="p">,</span> <span class="n">original_rule</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">match</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Warning: Could not parse swap value rule: </span><span class="si">{</span><span class="n">original_rule</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">[]</span>
+
+    <span class="n">target_count</span> <span class="o">=</span> <span class="n">num_variants</span> <span class="o">-</span> <span class="mi">1</span>
     <span class="n">attempts</span> <span class="o">=</span> <span class="mi">0</span>
     <span class="n">max_attempts_per_valid_variant</span> <span class="o">=</span> <span class="mi">100</span>
 
-    <span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="n">valid_mutated_items</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">target_count</span> <span class="ow">and</span> <span class="n">attempts</span> <span class="o">&lt;</span> <span class="n">max_attempts_per_valid_variant</span> <span class="o">*</span> <span class="n">target_count</span><span class="p">:</span>
+    <span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="n">mutated_items</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">target_count</span> <span class="ow">and</span> <span class="n">attempts</span> <span class="o">&lt;</span> <span class="n">max_attempts_per_valid_variant</span> <span class="o">*</span> <span class="n">target_count</span><span class="p">:</span>
+        <span class="c1"># 1. Generate a new candidate grid</span>
         <span class="n">candidate_grid_np</span> <span class="o">=</span> <span class="n">generate_single_random_grid</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">item</span><span class="p">[</span><span class="s1">'input_grid'</span><span class="p">])</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">max_dim</span><span class="p">,</span> <span class="n">num_range</span><span class="p">)</span>
         
-        <span class="k">if</span> <span class="n">is_rule_compatible_with_grid</span><span class="p">(</span><span class="n">original_rule</span><span class="p">,</span> <span class="n">candidate_grid_np</span><span class="o">.</span><span class="n">shape</span><span class="p">):</span>
-            <span class="n">valid_mutated_items</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s1">'input_grid'</span><span class="p">:</span> <span class="n">candidate_grid_np</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span> <span class="s1">'dsl_rule'</span><span class="p">:</span> <span class="n">original_rule</span><span class="p">})</span>
+        <span class="c1"># 2. Determine new values for the rule (0 to num_range)</span>
+        <span class="n">new_from_val_int</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">num_range</span><span class="p">)</span>
+        <span class="n">new_to_val_int</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">num_range</span><span class="p">)</span>
         
-        <span class="n">attempts</span> <span class="o">+=</span> <span class="mi">1</span>
-        
-    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">valid_mutated_items</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">target_count</span><span class="p">:</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Warning: mutate_for_indexed_rule could not generate </span><span class="si">{</span><span class="n">target_count</span><span class="si">}</span><span class="s2"> valid mutations for rule '</span><span class="si">{</span><span class="n">original_rule</span><span class="si">}</span><span class="s2">'. Got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">valid_mutated_items</span><span class="p">)</span><span class="si">}</span><span class="s2"> after </span><span class="si">{</span><span class="n">attempts</span><span class="si">}</span><span class="s2"> attempts."</span><span class="p">)</span>
+        <span class="c1"># Convert integers to DSL symbols using the updated int_to_roman</span>
+        <span class="n">new_from_val_sym</span> <span class="o">=</span> <span class="n">int_to_roman</span><span class="p">(</span><span class="n">new_from_val_int</span><span class="p">)</span>
+        <span class="n">new_to_val_sym</span> <span class="o">=</span> <span class="n">int_to_roman</span><span class="p">(</span><span class="n">new_to_val_int</span><span class="p">)</span>
 
-    <span class="k">return</span> <span class="n">valid_mutated_items</span>
+        <span class="c1"># 3. Create the new rule string</span>
+        <span class="n">new_rule</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"⇒(</span><span class="si">{</span><span class="n">new_from_val_sym</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">new_to_val_sym</span><span class="si">}</span><span class="s2">)"</span>
+
+        <span class="c1"># 4. Ensure the 'from' value exists in the grid, or inject it</span>
+        <span class="k">if</span> <span class="n">new_from_val_int</span> <span class="ow">in</span> <span class="n">candidate_grid_np</span><span class="p">:</span>
+            <span class="c1"># Value already exists, grid is fine</span>
+            <span class="n">final_grid</span> <span class="o">=</span> <span class="n">candidate_grid_np</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Need to inject the 'from' value to make the rule meaningful</span>
+            <span class="c1"># Modify one random element to be the 'from' value</span>
+            <span class="k">if</span> <span class="n">candidate_grid_np</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">flat_index</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">candidate_grid_np</span><span class="o">.</span><span class="n">size</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+                <span class="n">final_grid</span> <span class="o">=</span> <span class="n">candidate_grid_np</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+                <span class="n">final_grid</span><span class="o">.</span><span class="n">flat</span><span class="p">[</span><span class="n">flat_index</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_from_val_int</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">final_grid</span> <span class="o">=</span> <span class="n">candidate_grid_np</span> <span class="c1"># Keep empty grid if size is 0</span>
+
+        <span class="n">mutated_items</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+            <span class="s1">'input_grid'</span><span class="p">:</span> <span class="n">final_grid</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+            <span class="s1">'dsl_rule'</span><span class="p">:</span> <span class="n">new_rule</span>
+        <span class="p">})</span>
+        <span class="n">attempts</span> <span class="o">+=</span> <span class="mi">1</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">mutated_items</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">target_count</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Warning: mutate_swap_value_rule could not generate </span><span class="si">{</span><span class="n">target_count</span><span class="si">}</span><span class="s2"> valid mutations for rule '</span><span class="si">{</span><span class="n">original_rule</span><span class="si">}</span><span class="s2">'. Got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">mutated_items</span><span class="p">)</span><span class="si">}</span><span class="s2"> after </span><span class="si">{</span><span class="n">attempts</span><span class="si">}</span><span class="s2"> attempts."</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">mutated_items</span>
+
+<span class="k">def</span> <span class="nf">mutate_extract_value_rule</span><span class="p">(</span><span class="n">item</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">num_variants</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span> <span class="n">max_dim</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">30</span><span class="p">,</span> <span class="n">num_range</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">9</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Mutates an extract value rule (⊡(R,C)) by generating new grids and updating the row/column indices.</span>
+<span class="sd">    Ensures the new indices are within the bounds of the new grid.</span>
+<span class="sd">    """</span>
+    <span class="n">mutated_items</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">original_rule</span> <span class="o">=</span> <span class="n">item</span><span class="p">[</span><span class="s1">'dsl_rule'</span><span class="p">]</span>
+    <span class="n">match</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="sa">r</span><span class="s1">'⊡\((?P&lt;row&gt;[IVX∅]+),(?P&lt;col&gt;[IVX∅]+)\)'</span><span class="p">,</span> <span class="n">original_rule</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">match</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Warning: Could not parse extract value rule: </span><span class="si">{</span><span class="n">original_rule</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">[]</span>
+
+    <span class="n">target_count</span> <span class="o">=</span> <span class="n">num_variants</span> <span class="o">-</span> <span class="mi">1</span>
+    <span class="n">attempts</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">max_attempts_per_valid_variant</span> <span class="o">=</span> <span class="mi">100</span>
+
+    <span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="n">mutated_items</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">target_count</span> <span class="ow">and</span> <span class="n">attempts</span> <span class="o">&lt;</span> <span class="n">max_attempts_per_valid_variant</span> <span class="o">*</span> <span class="n">target_count</span><span class="p">:</span>
+        <span class="c1"># 1. Generate a new candidate grid</span>
+        <span class="n">candidate_grid_np</span> <span class="o">=</span> <span class="n">generate_single_random_grid</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">item</span><span class="p">[</span><span class="s1">'input_grid'</span><span class="p">])</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">max_dim</span><span class="p">,</span> <span class="n">num_range</span><span class="p">)</span>
+        
+        <span class="n">rows</span><span class="p">,</span> <span class="n">cols</span> <span class="o">=</span> <span class="n">candidate_grid_np</span><span class="o">.</span><span class="n">shape</span>
+        
+        <span class="c1"># Need at least a 1x1 grid to extract a value</span>
+        <span class="k">if</span> <span class="n">rows</span> <span class="o">&gt;=</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">cols</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="c1"># 2. Select valid 1-based indices for the new grid</span>
+            <span class="n">new_row_idx</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">rows</span><span class="p">)</span>
+            <span class="n">new_col_idx</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">cols</span><span class="p">)</span>
+
+            <span class="c1"># 3. Convert indices to DSL symbols</span>
+            <span class="n">new_row_sym</span> <span class="o">=</span> <span class="n">int_to_roman</span><span class="p">(</span><span class="n">new_row_idx</span><span class="p">)</span>
+            <span class="n">new_col_sym</span> <span class="o">=</span> <span class="n">int_to_roman</span><span class="p">(</span><span class="n">new_col_idx</span><span class="p">)</span>
+
+            <span class="c1"># 4. Create the new rule string</span>
+            <span class="n">new_rule</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"⊡(</span><span class="si">{</span><span class="n">new_row_sym</span><span class="si">}</span><span class="s2">,</span><span class="si">{</span><span class="n">new_col_sym</span><span class="si">}</span><span class="s2">)"</span>
+
+            <span class="n">mutated_items</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+                <span class="s1">'input_grid'</span><span class="p">:</span> <span class="n">candidate_grid_np</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+                <span class="s1">'dsl_rule'</span><span class="p">:</span> <span class="n">new_rule</span>
+            <span class="p">})</span>
+            
+        <span class="n">attempts</span> <span class="o">+=</span> <span class="mi">1</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">mutated_items</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">target_count</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Warning: mutate_extract_value_rule could not generate </span><span class="si">{</span><span class="n">target_count</span><span class="si">}</span><span class="s2"> valid mutations for rule '</span><span class="si">{</span><span class="n">original_rule</span><span class="si">}</span><span class="s2">'. Got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">mutated_items</span><span class="p">)</span><span class="si">}</span><span class="s2"> after </span><span class="si">{</span><span class="n">attempts</span><span class="si">}</span><span class="s2"> attempts."</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">mutated_items</span>
+
+<span class="k">def</span> <span class="nf">mutate_identity_rule</span><span class="p">(</span><span class="n">item</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">num_variants</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span> <span class="n">max_dim</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">30</span><span class="p">,</span> <span class="n">num_range</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">9</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">"""</span>
+<span class="sd">    Mutates an identity rule (⌂) by generating new random grids.</span>
+<span class="sd">    The rule string '⌂' remains unchanged.</span>
+<span class="sd">    """</span>
+    <span class="n">mutated_items</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">original_rule</span> <span class="o">=</span> <span class="n">item</span><span class="p">[</span><span class="s1">'dsl_rule'</span><span class="p">]</span> <span class="c1"># This should be '⌂'</span>
+    
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_variants</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="c1"># 1. Generate a new candidate grid</span>
+        <span class="n">candidate_grid_np</span> <span class="o">=</span> <span class="n">generate_single_random_grid</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">item</span><span class="p">[</span><span class="s1">'input_grid'</span><span class="p">])</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">max_dim</span><span class="p">,</span> <span class="n">num_range</span><span class="p">)</span>
+        
+        <span class="c1"># 2. Append the new grid with the unchanged rule</span>
+        <span class="n">mutated_items</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+            <span class="s1">'input_grid'</span><span class="p">:</span> <span class="n">candidate_grid_np</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+            <span class="s1">'dsl_rule'</span><span class="p">:</span> <span class="n">original_rule</span> <span class="c1"># Remains '⌂'</span>
+        <span class="p">})</span>
+        
+    <span class="k">return</span> <span class="n">mutated_items</span>
 </pre></div>
 </div>
 </div>
@@ -7848,11 +7989,15 @@ a.anchor-link {
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-ipython3"><pre><span></span><span class="n">mutation_functions_map</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="c1"># '↢': lambda item, num_variants, **kwargs: []</span>
-    <span class="s1">'↔'</span><span class="p">:</span> <span class="p">[</span><span class="n">mutate_flip_rule</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span>
+    <span class="c1"># '↢': (lambda item, num_variants, **kwargs: [], 2)</span>
+    <span class="c1"># '↔': [mutate_flip_rule, 2],</span>
     <span class="c1"># '↕': [mutate_flip_rule, 2],</span>
-    <span class="s1">'⇅'</span><span class="p">:</span> <span class="p">[</span><span class="n">mutate_for_indexed_rule</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span>
-    <span class="c1"># '⇆': [mutate_for_indexed_rule, 4],</span>
+    <span class="c1"># '⇅': [mutate_swap_row_rule, 2],</span>
+    <span class="c1"># '⇄': [mutate_swap_col_rule, 2],</span>
+    <span class="c1"># '⇒': [mutate_swap_value_rule, 2],</span>
+    <span class="c1"># '⊡': [mutate_extract_value_rule, 3],</span>
+    <span class="c1"># '⌂': [mutate_identity_rule, 3] ,</span>
+    <span class="s1">'⏚'</span><span class="p">:</span> <span class="p">(</span><span class="k">lambda</span> <span class="n">item</span><span class="p">,</span> <span class="n">num_variants</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="p">[],</span> <span class="mi">2</span><span class="p">)</span>
 <span class="p">}</span>
 
 <span class="k">for</span> <span class="n">dsl_symbol</span><span class="p">,</span> <span class="n">initial_rules_list</span> <span class="ow">in</span> <span class="n">groups</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
@@ -7936,7 +8081,7 @@ a.anchor-link {
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
 <div class="highlight hl-ipython3"><pre><span></span><span class="n">groups_list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">groups</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
-<span class="n">groups_list</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+<span class="n">groups_list</span><span class="p">[</span><span class="mi">7</span><span class="p">]</span>
 </pre></div>
 </div>
 </div>
@@ -7950,7 +8095,7 @@ a.anchor-link {
 <div class="jp-InputPrompt jp-InputArea-prompt">In [ ]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
 <div class="cm-editor cm-s-jupyter">
-<div class="highlight hl-ipython3"><pre><span></span> 
+<div class="highlight hl-ipython3"><pre><span></span><span class="nb">len</span><span class="p">(</span><span class="n">groups_list</span><span class="p">)</span> 
 </pre></div>
 </div>
 </div>
