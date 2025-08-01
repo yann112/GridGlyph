@@ -133,7 +133,7 @@ def draw_random_shapes(grid: np.ndarray, num_shapes: int = 3, value_range: tuple
             pass
     return grid
 
-def generate_random_shape_grid(min_dim: int = 5, max_dim: int = 20, value_range: tuple[int, int] = (1, 9), 
+def generate_random_shape_grid(min_dim: int = 5, max_dim: int = 30, value_range: tuple[int, int] = (1, 9), 
                         num_shapes: int = 5, fill_prob: float = 0.6, background_value: int = 0) -> np.ndarray:
     height = random.randint(min_dim, max_dim)
     width = random.randint(min_dim, max_dim)
