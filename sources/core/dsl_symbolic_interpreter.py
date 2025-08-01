@@ -10,14 +10,14 @@ from assets.symbols import ROM_VAL_MAP
 _WILDCARD_VALUE = -1
 _SAFE_EVAL_GLOBALS = {"np": np}
 _SAFE_EVAL_LOCALS = {}
-ROMAN_INDEX_PATTERN = r"-?(?:I|II|III|IV|V|VI|VII|VIII|IX|X)"
-ROMAN_VALUE_PATTERN = r"-?(?:I|II|III|IV|V|VI|VII|VIII|IX|X|∅)"
+ROMAN_INDEX_PATTERN = r"-?(?:I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX|XXI|XXII|XXIII|XXIV|XXV|XXVI|XXVII|XXVIII|XXIX|XXX)"
+ROMAN_VALUE_PATTERN = r"-?(?:I|II|III|IV|V|VI|VII|VIII|IX|∅)"
 
 
 def _process_match_pattern_full_params(
     raw_params: Dict[str, Any],
     parser: 'SymbolicRuleParser'
-) -> Dict[str, Any]:
+    ) -> Dict[str, Any]:
     full_params_str = raw_params.pop('full_params_str', "").strip()
     main_params_strs = _split_balanced_args(full_params_str, num_args=3)
 
@@ -530,7 +530,7 @@ SYMBOL_RULES = {
         "target_op_name": "locate_pattern"
     },
     "slice_grid": {
-        "pattern": fr"^✂\((?P<row_start>{ROMAN_VALUE_PATTERN}),\s*(?P<col_start>{ROMAN_VALUE_PATTERN}),\s*(?P<row_end>{ROMAN_VALUE_PATTERN}),\s*(?P<col_end>{ROMAN_VALUE_PATTERN})\)$",
+        "pattern": fr"^✂\((?P<row_start>{ROMAN_INDEX_PATTERN}),\s*(?P<col_start>{ROMAN_INDEX_PATTERN}),\s*(?P<row_end>{ROMAN_INDEX_PATTERN}),\s*(?P<col_end>{ROMAN_INDEX_PATTERN})\)$",
         "transform_params": lambda m: {
             "row_start": roman_to_int(m["row_start"]),
             "col_start": roman_to_int(m["col_start"]),
