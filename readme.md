@@ -126,7 +126,3 @@ T = [repeat_horizontal(R0, 3), repeat_horizontal(R1, 3),
 * Track rule execution and scores to ensure convergence
 
 ---
-
-This version **removes the Katakana/glyph mapping** entirely, focusing on embeddings and deterministic DSL generation.
-
-If you want, I can **rewrite the example flow and JSON outputs** to match this clean numeric/symbolic approach — so the README is fully consistent with the new design. Do you want me to do that?
