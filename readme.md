@@ -1,22 +1,25 @@
+
+---
+
 # GridGlyph
 
 ## A Symbolic Reasoning Engine for Solving Visual Logic Puzzles
 
-GridGlyph is a hybrid **symbolic + AI** system designed to solve grid-based visual reasoning puzzles (like those in the Abstraction and Reasoning Corpus — ARC). It transforms numeric grids into abstract symbolic representations and learns **deterministic transformation rules** using a **latent embedding space**.
+GridGlyph is a **hybrid symbolic + AI system** designed to solve grid-based visual reasoning puzzles (like those in the Abstraction and Reasoning Corpus — ARC). It transforms numeric grids into **abstract symbolic representations** and learns **deterministic transformation rules** expressed as **sigils** in a custom DSL.
 
 Unlike traditional approaches, GridGlyph ensures:
 
 * Multiple puzzle instances of the same underlying rule converge in the **latent embedding space**
-* DSL rules are deterministic and interpretable
+* DSL rules are **deterministic, symbolic, and interpretable**
 * Novel combinations of atomic operations are possible without hallucination
 
 ---
 
 ## 🧩 Core Concepts
 
-### 1. GridGlyph (Project Name)
+### 1. GridGlyph Pipeline
 
-> The full pipeline that solves visual pattern puzzles using symbolic abstraction and embeddings.
+> The full system that solves visual pattern puzzles using symbolic abstraction and embeddings.
 
 GridGlyph teaches AI to see transformations **structurally**:
 
@@ -30,59 +33,53 @@ GridGlyph teaches AI to see transformations **structurally**:
 
 > Encode puzzles into a latent space capturing structural features, **forcing multiple representations of the same rule to converge**.
 
-* **Multiple views per rule**:
-  Every puzzle rule is represented by **all available input/output examples**, possibly with symbolic perturbations (shuffled numbers, reordered objects, etc.) to create diverse variants.
-
-* **Convergent embedding**:
-  Feeding all these variants into the embedding encoder forces **latent vectors of the same rule to align**, independent of numeric ordering.
-
-* **Single-block model training**:
-  A compact model predicts the **DSL sequence** directly from the embedding.
-  Since embeddings converge, the model produces a **unique, deterministic DSL output** for each underlying transformation.
+* **Multiple views per rule**: Every puzzle rule is represented by all available input/output examples, possibly with symbolic perturbations (shuffled numbers, reordered objects) to create diverse variants.
+* **Convergent embedding**: Feeding all variants into the embedding encoder forces **latent vectors of the same rule to align**, independent of numeric ordering.
+* **DSL prediction**: A compact model predicts the **DSL sequence of sigils** directly from the embedding. Since embeddings converge, the model produces a **unique, deterministic symbolic output** for each underlying transformation.
 
 **Benefits**:
 
-* Deterministic rule output
+* Deterministic, interpretable rule output
 * No hallucination
 * Supports novel recombinations of atomic operations
 * Simplified, compact model training
 
 ---
 
-### 3. sigil (Transformation Logic)
+### 3. Sigils and DSL Rules
 
-> Transformation rules expressed as executable logic (DSL).
+> Transformation rules expressed as **symbolic operations** (DSL), not Python functions.
 
-A `sigil` can be:
+A **sigil** is a **symbolic character or sequence** representing an atomic transformation in the GridGlyph DSL.
 
-* A Python function generated from the model
-* Or a structured DSL sequence representing atomic operations
+**Examples of atomic sigils**:
 
-**Example Python Sigil**:
+* `⌂` → reference to input grid
+* `Ⳁ` → identity (no change)
+* `↻` → rotate grid clockwise
+* `↔` → horizontal flip
+* `↕` → vertical flip
+* `→` → apply operation to a row
+* `↓` → apply operation to a column
 
-```python
-def transform(grid):
-    row1 = grid[0] * 3
-    row2 = grid[1] * 3
-    return [
-        row1,
-        row2,
-        row1[::-1],
-        row2[::-1]
-    ]
-```
+**Combining sigils**:
 
-**Example DSL Sigil**:
+Sigils can be **nested or sequenced** to form complex transformation programs.
+
+**Example DSL Sigil Sequence**:
 
 ```
-T = [repeat_horizontal(R0, 3), repeat_horizontal(R1, 3),
-     mirror_rows(R0), mirror_rows(R1)]
+T = [→(⌂, ◨(III)), ↔(R0), ↻(I)]
 ```
+
+* `→(⌂, ◨(III))` → apply horizontal repeat 3 times to row of input grid
+* `↔(R0)` → flip row 0 horizontally
+* `↻(I)` → rotate entire input grid clockwise
 
 **Why sigils**:
 
-* Encodes transformations in a deterministic, interpretable way
-* Can be executed directly for scoring
+* Encodes transformations in a **deterministic, interpretable, symbolic** way
+* Executable directly by the `DSLExecutor`
 * Supports recombination and extension with atomic DSL operations
 
 ---
@@ -90,10 +87,10 @@ T = [repeat_horizontal(R0, 3), repeat_horizontal(R1, 3),
 ## 🔁 Pipeline Overview
 
 1. **Input Puzzle**: Numeric input/output grid pairs
-2. **Create multiple variants**: Generate several puzzle instances for the same rule (object shuffle, alternate symbols, numeric remapping)
-3. **Embedding Encoder**: Map grids to latent space, forcing same-rule embeddings to cluster
-4. **DSL Prediction Model**: Train a compact model to output DSL sequences from embeddings
-5. **Execute Sigil**: Run predicted transformation on input grids
+2. **Generate Variants**: Create several puzzle instances for the same rule (object shuffle, symbol remapping, reordered rows/columns)
+3. **Embedding Encoder**: Map grids to latent space, forcing embeddings of same-rule variants to cluster
+4. **DSL Predictor**: Train a compact model to output **sigil sequences** from embeddings
+5. **Execute Sigil**: Run predicted symbolic transformations on input grids
 6. **Score**: Compare predicted output vs expected results
 7. **Optional Feedback Loop**: Retry or augment if outputs are inconsistent
 
@@ -104,7 +101,7 @@ T = [repeat_horizontal(R0, 3), repeat_horizontal(R1, 3),
 * **Embedding alignment** ensures deterministic rule outputs
 * **Multiple puzzle variants** improve generalization
 * **DSL-based execution** eliminates hallucination
-* **Atomic operations + recombination** allows solving unseen puzzles
+* **Atomic operations + recombination** allow solving unseen puzzles
 
 ---
 
@@ -120,9 +117,10 @@ T = [repeat_horizontal(R0, 3), repeat_horizontal(R1, 3),
 
 ## 🛠️ Development Notes
 
-* Start with **atomic rules**, validate manually
+* Start with **atomic sigils**, validate manually
 * Generate **multiple variants per rule** for embedding convergence
 * Train embeddings and DSL predictor **jointly**
 * Track rule execution and scores to ensure convergence
 
 ---
+
