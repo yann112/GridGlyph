@@ -2,7 +2,7 @@ import pytest
 from pathlib import Path
 from dotenv import load_dotenv
 
-from utils.llm import OpenRouterClient
+from gridglyph.utils.llm import OpenRouterClient
 
 load_dotenv()
 

@@ -1,7 +1,8 @@
 import numpy as np
 import logging
-from typing import Any, Dict, Optional, Iterator
-from core.dsl_nodes import *
+from typing import Any, Dict
+
+from gridglyph.core.dsl_nodes import *
 
 
 class DSLExecutor:

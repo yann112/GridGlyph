@@ -1,5 +1,6 @@
-from typing import Dict, Type
-from core.dsl_nodes import *
+from typing import Type
+from gridglyph.core.dsl_nodes import *
+
 
 class TransformationFactory:
     OPERATION_MAP = { 

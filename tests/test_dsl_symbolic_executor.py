@@ -3,9 +3,8 @@ import numpy as np
 import logging
 from typing import Optional, Union
 
-from core.dsl_symbolic_interpreter import SymbolicRuleParser, roman_to_int
-from core.dsl_symbolic_executor import DSLExecutor
-from core.dsl_nodes import InputGridReference
+from gridglyph.core.dsl_symbolic_interpreter import SymbolicRuleParser
+from gridglyph.core.dsl_symbolic_executor import DSLExecutor
 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')

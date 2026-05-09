@@ -1,97 +1,98 @@
 
 import re
 import logging
-from typing import Dict, List, Optional, Union, Any, Callable, Tuple
+from typing import List, Optional, Union
 import numpy as np
-from core.transformation_factory import TransformationFactory
-from core.dsl_nodes import AbstractTransformationCommand
-from assets.symbols import ROM_VAL_MAP 
+
+from gridglyph.core.transformation_factory import TransformationFactory
+from gridglyph.core.dsl_nodes import AbstractTransformationCommand
+from gridglyph.assets.symbols import ROM_VAL_MAP 
 
 _WILDCARD_VALUE = -1
-_SAFE_EVAL_GLOBALS = {"np": np}
-_SAFE_EVAL_LOCALS = {}
+# _SAFE_EVAL_GLOBALS = {"np": np}
+# _SAFE_EVAL_LOCALS = {}
 ROMAN_INDEX_PATTERN = r"-?(?:I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII|XIII|XIV|XV|XVI|XVII|XVIII|XIX|XX|XXI|XXII|XXIII|XXIV|XXV|XXVI|XXVII|XXVIII|XXIX|XXX)"
 ROMAN_VALUE_PATTERN = r"-?(?:I|II|III|IV|V|VI|VII|VIII|IX|∅)"
 
 
-def _process_match_pattern_full_params(
-    raw_params: Dict[str, Any],
-    parser: 'SymbolicRuleParser'
-    ) -> Dict[str, Any]:
-    full_params_str = raw_params.pop('full_params_str', "").strip()
-    main_params_strs = _split_balanced_args(full_params_str, num_args=3)
+# def _process_match_pattern_full_params(
+#     raw_params: Dict[str, Any],
+#     parser: 'SymbolicRuleParser'
+#     ) -> Dict[str, Any]:
+#     full_params_str = raw_params.pop('full_params_str', "").strip()
+#     main_params_strs = _split_balanced_args(full_params_str, num_args=3)
 
-    if len(main_params_strs) != 3:
-        raise ValueError(f"Malformed ◫ command: Expected 3 main arguments (grid, cases, default_action) but found {len(main_params_strs)} in '{full_params_str}'")
+#     if len(main_params_strs) != 3:
+#         raise ValueError(f"Malformed ◫ command: Expected 3 main arguments (grid, cases, default_action) but found {len(main_params_strs)} in '{full_params_str}'")
 
-    grid_to_evaluate_str = main_params_strs[0].strip()
-    cases_list_str = main_params_strs[1].strip()
-    default_action_str = main_params_strs[2].strip()
+#     grid_to_evaluate_str = main_params_strs[0].strip()
+#     cases_list_str = main_params_strs[1].strip()
+#     default_action_str = main_params_strs[2].strip()
 
-    grid_to_evaluate_cmd = parser.parse_token(grid_to_evaluate_str)
+#     grid_to_evaluate_cmd = parser.parse_token(grid_to_evaluate_str)
 
-    if not (cases_list_str.startswith('[') and cases_list_str.endswith(']')):
-        raise ValueError(f"Malformed ◫ cases list: Expected cases to be enclosed in square brackets '[]' but found '{cases_list_str}'")
+#     if not (cases_list_str.startswith('[') and cases_list_str.endswith(']')):
+#         raise ValueError(f"Malformed ◫ cases list: Expected cases to be enclosed in square brackets '[]' but found '{cases_list_str}'")
     
-    cases_str_for_processor = cases_list_str[1:-1].strip()
+#     cases_str_for_processor = cases_list_str[1:-1].strip()
 
-    parsed_cases: List[Tuple['AbstractTransformationCommand', 'AbstractTransformationCommand']] = []
-    if cases_str_for_processor:
-        individual_case_strs = []
-        balance_paren = 0
-        balance_bracket = 0
-        current_case_chars = []
+#     parsed_cases: List[Tuple['AbstractTransformationCommand', 'AbstractTransformationCommand']] = []
+#     if cases_str_for_processor:
+#         individual_case_strs = []
+#         balance_paren = 0
+#         balance_bracket = 0
+#         current_case_chars = []
 
-        for char in cases_str_for_processor:
-            if char == '(':
-                balance_paren += 1
-            elif char == ')':
-                balance_paren -= 1
-            elif char == '[':
-                balance_bracket += 1
-            elif char == ']':
-                balance_bracket -= 1
+#         for char in cases_str_for_processor:
+#             if char == '(':
+#                 balance_paren += 1
+#             elif char == ')':
+#                 balance_paren -= 1
+#             elif char == '[':
+#                 balance_bracket += 1
+#             elif char == ']':
+#                 balance_bracket -= 1
 
-            if char == ',' and balance_paren == 0 and balance_bracket == 0:
-                part = "".join(current_case_chars).strip()
-                if part:
-                    individual_case_strs.append(part)
-                current_case_chars = []
-            else:
-                current_case_chars.append(char)
+#             if char == ',' and balance_paren == 0 and balance_bracket == 0:
+#                 part = "".join(current_case_chars).strip()
+#                 if part:
+#                     individual_case_strs.append(part)
+#                 current_case_chars = []
+#             else:
+#                 current_case_chars.append(char)
         
-        final_part = "".join(current_case_chars).strip()
-        if final_part:
-            individual_case_strs.append(final_part)
+#         final_part = "".join(current_case_chars).strip()
+#         if final_part:
+#             individual_case_strs.append(final_part)
         
-        for raw_tuple_str in individual_case_strs:
-            stripped_tuple_str = raw_tuple_str.strip()
+#         for raw_tuple_str in individual_case_strs:
+#             stripped_tuple_str = raw_tuple_str.strip()
             
-            if not (stripped_tuple_str.startswith('(') and stripped_tuple_str.endswith(')')):
-                raise ValueError(f"Malformed case tuple format: '{raw_tuple_str}'. Expected (condition, action).")
+#             if not (stripped_tuple_str.startswith('(') and stripped_tuple_str.endswith(')')):
+#                 raise ValueError(f"Malformed case tuple format: '{raw_tuple_str}'. Expected (condition, action).")
             
-            inner_tuple_content = stripped_tuple_str[1:-1].strip()
+#             inner_tuple_content = stripped_tuple_str[1:-1].strip()
 
-            condition_action_strs = _split_balanced_args(inner_tuple_content, num_args=2)
+#             condition_action_strs = _split_balanced_args(inner_tuple_content, num_args=2)
 
-            if len(condition_action_strs) != 2:
-                raise ValueError(f"Malformed case tuple: {raw_tuple_str}. Could not parse into condition and action.")
+#             if len(condition_action_strs) != 2:
+#                 raise ValueError(f"Malformed case tuple: {raw_tuple_str}. Could not parse into condition and action.")
 
-            condition_cmd_str = condition_action_strs[0].strip()
-            action_cmd_str = condition_action_strs[1].strip()
+#             condition_cmd_str = condition_action_strs[0].strip()
+#             action_cmd_str = condition_action_strs[1].strip()
 
-            condition_cmd = parser.parse_token(condition_cmd_str)
-            action_cmd = parser.parse_token(action_cmd_str)
+#             condition_cmd = parser.parse_token(condition_cmd_str)
+#             action_cmd = parser.parse_token(action_cmd_str)
 
-            parsed_cases.append((condition_cmd, action_cmd))
+#             parsed_cases.append((condition_cmd, action_cmd))
     
-    default_action_cmd = parser.parse_token(default_action_str)
+#     default_action_cmd = parser.parse_token(default_action_str)
 
-    return {
-        'grid_to_evaluate_cmd': grid_to_evaluate_cmd,
-        'cases': parsed_cases,
-        'default_action_cmd': default_action_cmd
-    }
+#     return {
+#         'grid_to_evaluate_cmd': grid_to_evaluate_cmd,
+#         'cases': parsed_cases,
+#         'default_action_cmd': default_action_cmd
+#     }
 
 
 def parse_symbolic_grid_literal(grid_list_str: str) -> np.ndarray:

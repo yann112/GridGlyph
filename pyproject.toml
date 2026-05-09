@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gridglyph"
+version = "0.1.0"
+description = "Neuro-symbolic engine for ARC puzzles"
+dependencies = [
+    "pytest==8.3.5",
+    "opencv-python==4.11.0.86",
+    "python-dotenv==1.0.1",
+    "numpy",
+    "torch",
+    "requests",
+    "pillow",
+    "transformers"
+]
+
+[tool.setuptools]
+packages = { find = { where = ["."], include = ["gridglyph*"] } }

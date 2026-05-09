@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 
-from utils.synthetic_grids import (
+from gridglyph.utils.synthetic_grids import (
         generate_single_random_grid,
         create_base_grid,
         generate_random_shape_grid,

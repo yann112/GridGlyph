@@ -4,7 +4,7 @@ import numpy as np
 import cv2
 from collections import deque
 from typing import List, Optional, Dict, Any, Tuple, Union, Iterator
-from assets.symbols import ROM_VAL_MAP , INT_VAL_MAP
+from gridglyph.assets.symbols import  INT_VAL_MAP
 
 
 class AbstractTransformationCommand(ABC):

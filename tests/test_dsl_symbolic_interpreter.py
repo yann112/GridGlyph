@@ -2,8 +2,7 @@
 
 import pytest
 import numpy as np
-from core.dsl_symbolic_interpreter import SymbolicRuleParser, roman_to_int
-from pathlib import Path
+from gridglyph.core.dsl_symbolic_interpreter import SymbolicRuleParser, roman_to_int
 
 
 common_input_grid = np.array([
