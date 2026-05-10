@@ -1,32 +1,45 @@
-import json
 import random
 
-# NO imports from .dataset or .train allowed here!
-
-KANJI_MAP = {0: "零", 1: "一", 2: "二", 3: "三", 4: "四", 5: "五", 6: "六", 7: "七", 8: "八", 9: "九"}
-
-def apply_isomorphism(grid, mapping):
-    return [[mapping.get(cell, cell) for cell in row] for row in grid]
-
 class GridAlchemist:
-    def __init__(self, seeds):
+    def __init__(self, seeds, tokenizer, kanji_limit=2000):
+        """
+        Injects dependencies from the client.
+        :param seeds: List of raw numeric grids.
+        :param tokenizer: The pre-instantiated tokenizer from the training client.
+        :param kanji_limit: How many unique safe symbols to pool.
+        """
         self.seeds = seeds
+        self.tokenizer = tokenizer
+        # Build the safe pool immediately using the injected tokenizer
+        self.kanji_pool = self._generate_safe_pool(kanji_limit)
+
+    def _generate_safe_pool(self, limit):
+        """Filters characters to ensure they are single-token for the injected model."""
+        safe_chars = []
+        # CJK Unified Ideographs block
+        for i in range(0x4E00, 0x9FFF):
+            char = chr(i)
+            # Check if this specific tokenizer sees this as exactly 1 token
+            ids = self.tokenizer.encode(char, add_special_tokens=False)
+            if len(ids) == 1:
+                safe_chars.append(char)
+            if len(safe_chars) >= limit:
+                break
+        return safe_chars
+
+    def apply_isomorphism(self, grid, mapping):
+        return [[mapping.get(cell, cell) for cell in row] for row in grid]
 
     def get_sample(self):
+        """Returns a logically consistent but symbolically unique grid sample."""
         seed = random.choice(self.seeds)
-        dice = random.random()
-        if dice < 0.3: return seed
-        elif dice < 0.6:
-            return {
-                "input_grid": apply_isomorphism(seed["input_grid"], KANJI_MAP),
-                "output_grid": apply_isomorphism(seed["output_grid"], KANJI_MAP),
-                "dsl_rule": seed["dsl_rule"]
-            }
-        else:
-            digits = list(range(10)); shuffled = digits.copy(); random.shuffle(shuffled)
-            perm_map = dict(zip(digits, shuffled))
-            return {
-                "input_grid": apply_isomorphism(seed["input_grid"], perm_map),
-                "output_grid": apply_isomorphism(seed["output_grid"], perm_map),
-                "dsl_rule": seed["dsl_rule"]
-            }
+        
+        # Fresh mapping for every call to prevent the 0.15 plateau
+        symbols = random.sample(self.kanji_pool, 10)
+        perm_map = dict(zip(range(10), symbols))
+        
+        return {
+            "input_grid": self.apply_isomorphism(seed["input_grid"], perm_map),
+            "output_grid": self.apply_isomorphism(seed["output_grid"], perm_map),
+            "dsl_rule": seed["dsl_rule"]
+        }
