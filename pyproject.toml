@@ -6,21 +6,28 @@ build-backend = "setuptools.build_meta"
 name = "gridglyph"
 version = "0.1.0"
 description = "Neuro-symbolic engine for ARC puzzles"
+readme = "README.md"
+requires-python = ">=3.9"
 dependencies = [
-    "pytest==8.3.5",
-    "opencv-python==4.11.0.86",
-    "python-dotenv==1.0.1",
-    "numpy",
     "torch",
-    "requests",
-    "pillow",
+    "numpy",
     "transformers",
     "peft",
-    "dataset",
+    "datasets",      # Plural version for HF
     "bitsandbytes",
     "accelerate",
-    "huggingface_hub"
+    "huggingface_hub",
+    "pyyaml",         # Required for your config files
+    "python-dotenv",
+    "opencv-python",
+    "pillow",
+    "requests",
+    "pytest"
 ]
+
+[project.scripts]
+gridglyph-train = "gridglyph.trainer.train:start_fine_tuning"
+gridglyph-build = "gridglyph.__main__:main"
 
 [tool.setuptools]
 packages = { find = { where = ["."], include = ["gridglyph*"] } }
