@@ -14,7 +14,12 @@ dependencies = [
     "torch",
     "requests",
     "pillow",
-    "transformers"
+    "transformers",
+    "peft",
+    "dataset",
+    "bitsandbytes",
+    "accelerate",
+    "huggingface_hub"
 ]
 
 [tool.setuptools]
