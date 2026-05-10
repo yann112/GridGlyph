@@ -1,126 +1,38 @@
+GridGlyph
 
----
+GridGlyph is a deterministic system designed to solve visual logic puzzles by finding the mathematical rules that govern them.
+Project Overview
 
-# GridGlyph
+The system operates by translating visual transformations into a custom Domain Specific Language (DSL). Instead of relying on a generative model to "guess" what an output grid looks like, we use a small language model to suggest a formal logic program which is then executed and verified by code.
+How it Works
+1. The DSL (Domain Specific Language)
 
-## A Symbolic Reasoning Engine for Solving Visual Logic Puzzles
+We have a library of Python functions that perform specific geometric and logical actions, such as:
 
-GridGlyph is a **hybrid symbolic + AI system** designed to solve grid-based visual reasoning puzzles (like those in the Abstraction and Reasoning Corpus — ARC). It transforms numeric grids into **abstract symbolic representations** and learns **deterministic transformation rules** expressed as **sigils** in a custom DSL.
+    Movements and Translations
 
-Unlike traditional approaches, GridGlyph ensures:
+    Symmetries and Flips
 
-* Multiple puzzle instances of the same underlying rule converge in the **latent embedding space**
-* DSL rules are **deterministic, symbolic, and interpretable**
-* Novel combinations of atomic operations are possible without hallucination
+    Rotations
 
----
+    Object Filtering
 
-## 🧩 Core Concepts
+Each of these functions is mapped to a unique symbolic character, or sigil. These sigils allow the language model to communicate complex transformations using a very compact string of tokens.
+2. Dataset Generation
 
-### 1. GridGlyph Pipeline
+We build our training data from scratch. Starting from a "ground truth" set of core logical rules, we use our own generators to produce thousands of unique puzzle instances. By varying colors, sizes, and noise while keeping the underlying rule constant, we train the model to focus on the invariant logic rather than the specific pixels.
+3. The Execution Loop
 
-> The full system that solves visual pattern puzzles using symbolic abstraction and embeddings.
+    Proposal: The language model analyzes a set of input/output examples and proposes a rule expressed in sigils.
 
-GridGlyph teaches AI to see transformations **structurally**:
+    Execution: The system interprets these sigils and runs the corresponding Python functions on the input grid.
 
-* Not by raw numeric values
-* But by **object counts, patterns, repetition, mirroring, rotation**
-* Using embeddings → DSL predictor → execution → scoring
+    Validation: The resulting grid is compared to the target. Because the process is symbolic, the result is binary: the rule is either 100% mathematically correct, or it is rejected.
 
----
+Design Philosophy
 
-### 2. Embedding-Based Reasoning & Rule Generalization
+    Deterministic: We eliminate hallucination by requiring the AI to provide a verifiable program rather than a raw image.
 
-> Encode puzzles into a latent space capturing structural features, **forcing multiple representations of the same rule to converge**.
+    Frugal: By using a compact DSL and a small language model, the system is designed to be efficient and specialized for industrial-grade logic tasks.
 
-* **Multiple views per rule**: Every puzzle rule is represented by all available input/output examples, possibly with symbolic perturbations (shuffled numbers, reordered objects) to create diverse variants.
-* **Convergent embedding**: Feeding all variants into the embedding encoder forces **latent vectors of the same rule to align**, independent of numeric ordering.
-* **DSL prediction**: A compact model predicts the **DSL sequence of sigils** directly from the embedding. Since embeddings converge, the model produces a **unique, deterministic symbolic output** for each underlying transformation.
-
-**Benefits**:
-
-* Deterministic, interpretable rule output
-* No hallucination
-* Supports novel recombinations of atomic operations
-* Simplified, compact model training
-
----
-
-### 3. Sigils and DSL Rules
-
-> Transformation rules expressed as **symbolic operations** (DSL), not Python functions.
-
-A **sigil** is a **symbolic character or sequence** representing an atomic transformation in the GridGlyph DSL.
-
-**Examples of atomic sigils**:
-
-* `⌂` → reference to input grid
-* `Ⳁ` → identity (no change)
-* `↻` → rotate grid clockwise
-* `↔` → horizontal flip
-* `↕` → vertical flip
-* `→` → apply operation to a row
-* `↓` → apply operation to a column
-
-**Combining sigils**:
-
-Sigils can be **nested or sequenced** to form complex transformation programs.
-
-**Example DSL Sigil Sequence**:
-
-```
-T = [→(⌂, ◨(III)), ↔(R0), ↻(I)]
-```
-
-* `→(⌂, ◨(III))` → apply horizontal repeat 3 times to row of input grid
-* `↔(R0)` → flip row 0 horizontally
-* `↻(I)` → rotate entire input grid clockwise
-
-**Why sigils**:
-
-* Encodes transformations in a **deterministic, interpretable, symbolic** way
-* Executable directly by the `DSLExecutor`
-* Supports recombination and extension with atomic DSL operations
-
----
-
-## 🔁 Pipeline Overview
-
-1. **Input Puzzle**: Numeric input/output grid pairs
-2. **Generate Variants**: Create several puzzle instances for the same rule (object shuffle, symbol remapping, reordered rows/columns)
-3. **Embedding Encoder**: Map grids to latent space, forcing embeddings of same-rule variants to cluster
-4. **DSL Predictor**: Train a compact model to output **sigil sequences** from embeddings
-5. **Execute Sigil**: Run predicted symbolic transformations on input grids
-6. **Score**: Compare predicted output vs expected results
-7. **Optional Feedback Loop**: Retry or augment if outputs are inconsistent
-
----
-
-## 🧠 Why This Approach Works
-
-* **Embedding alignment** ensures deterministic rule outputs
-* **Multiple puzzle variants** improve generalization
-* **DSL-based execution** eliminates hallucination
-* **Atomic operations + recombination** allow solving unseen puzzles
-
----
-
-## ⚡ Advantages
-
-* Deterministic, interpretable transformation rules
-* Can handle many variations of the same underlying rule
-* Compact models, less compute than full LLMs
-* Supports recombination of atomic transformations for unseen puzzles
-* Embeddings encourage generalization and rule alignment
-
----
-
-## 🛠️ Development Notes
-
-* Start with **atomic sigils**, validate manually
-* Generate **multiple variants per rule** for embedding convergence
-* Train embeddings and DSL predictor **jointly**
-* Track rule execution and scores to ensure convergence
-
----
-
+    Simple: The architecture prioritizes a robust, usable tool over unnecessary complexity. Usage decides future complexity, not assumptions.
