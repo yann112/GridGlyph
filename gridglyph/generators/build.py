@@ -108,14 +108,3 @@ def build_dataset(output_path: str, test_cases=None, multiplier: int = 1):
 
     print(f"\n✅ Generation complete: {total_written} samples saved to {output_path}")
     
-    if __name__ == "__main__":
-        import argparse
-        
-        parser = argparse.ArgumentParser(description="GridGlyph Dataset Generator")
-        parser.add_argument("--output", type=str, default="atomic_dataset.jsonl")
-        parser.add_argument("--multiplier", type=int, default=1)
-        
-        args = parser.parse_args()
-        
-        # This calls the function you already wrote above
-        build_dataset(output_path=args.output, multiplier=args.multiplier)
