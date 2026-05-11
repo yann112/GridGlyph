@@ -60,22 +60,26 @@ def start_fine_tuning(config_override="config.yaml"):
     use_gpu = torch.cuda.is_available() and cfg['model']['use_4bit']
     
     training_args = TrainingArguments(
-        output_dir="./gridglyph_outputs",
-        per_device_train_batch_size=cfg['training']['batch_size'],
-        gradient_accumulation_steps=cfg['training']['grad_accum'],
-        learning_rate=cfg['training']['learning_rate'],
-        max_steps=cfg['training']['max_steps'],
-        fp16=cfg['training']['fp16'] and use_gpu,
-        # Gradient checkpointing is mandatory for r=64 on a single T4
-        gradient_checkpointing=True,
-        use_cpu=not use_gpu,
-        push_to_hub=cfg['training']['push_to_hub'],
-        hub_model_id=cfg['repo']['output'],
-        logging_steps=10,
-        save_steps=500,
-        save_total_limit=2,
-        report_to="none"
-    )
+            output_dir="./gridglyph_outputs",
+            per_device_train_batch_size=cfg['training']['batch_size'],
+            gradient_accumulation_steps=cfg['training']['grad_accum'],
+            learning_rate=cfg['training']['learning_rate'],
+            max_steps=cfg['training']['max_steps'],
+            fp16=cfg['training']['fp16'] and use_gpu,
+            # Gradient checkpointing est vital pour LoRA r=64 sur T4
+            gradient_checkpointing=True,
+            use_cpu=not use_gpu,
+            
+            # --- Stratégie de Push & Sauvegarde ---
+            push_to_hub=cfg['training']['push_to_hub'],
+            hub_model_id=cfg['repo']['output'],
+            hub_strategy=cfg['training'].get('hub_strategy', "every_save"), 
+            save_steps=cfg['training'].get('save_steps', 500),
+            save_total_limit=cfg['training'].get('save_total_limit', 2),
+            
+            logging_steps=10,
+            report_to="none"
+        )
 
     # Causal LM Collator (mlm=False)
     # The model learns to predict the DSL Rule at the end of the prompt
