@@ -9,13 +9,24 @@ class GridGlyphDataset(IterableDataset):
         self.tokenizer = tokenizer
         self.max_length = max_length
         
-        self.dataset = load_dataset(repo_id, split="train", streaming=True)
-        self.alchemist = GridAlchemist(self.dataset, self.tokenizer)
+        # 1. Chargement en streaming
+        ds = load_dataset(repo_id, split="train", streaming=True)
+        # 2. Création explicite de l'itérateur
+        self.dataset_iterator = iter(ds)
+        
+        # 3. Passage de l'itérateur à l'alchimiste
+        self.alchemist = GridAlchemist(self.dataset_iterator, self.tokenizer)
         self.assistant_start_tokens = self.tokenizer.encode("<|im_start|>assistant\n", add_special_tokens=False)
 
     def __iter__(self):
+        # Le Trainer appellera __iter__ pour commencer à consommer le dataset
         while True:
-            sample = self.alchemist.get_sample()
+            try:
+                sample = self.alchemist.get_sample()
+            except StopIteration:
+                # Si l'itérateur est épuisé, on le recrée
+                break 
+                
             prompt = self._format_prompt(sample)
             
             tokenized = self.tokenizer(
@@ -31,7 +42,6 @@ class GridGlyphDataset(IterableDataset):
                 continue 
             
             labels = input_ids.clone()
-            
             assistant_idx = self._find_subsequence(input_ids, self.assistant_start_tokens)
             
             if assistant_idx != -1:
@@ -49,7 +59,7 @@ class GridGlyphDataset(IterableDataset):
     def _format_prompt(self, sample):
         in_grid = json.dumps(sample["input_grid"], ensure_ascii=False)
         out_grid = json.dumps(sample["output_grid"], ensure_ascii=False)
-        rule = sample["dsl_rule"].replace(" ", "")
+        rule = str(sample["dsl_rule"]).replace(" ", "")
 
         return (
             f"<|im_start|>user\n{in_grid}\n{out_grid}<|im_end|>\n"
