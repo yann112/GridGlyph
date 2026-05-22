@@ -7,25 +7,32 @@ from gridglyph.trainer.generator import GridAlchemist
 class GridGlyphDataset(IterableDataset):
     def __init__(self, tokenizer, repo_id="yannumber1/gridglyph-atomic-seeds", max_length=1024):
         self.tokenizer = tokenizer
+        self.repo_id = repo_id
         self.max_length = max_length
         
-        # 1. Chargement en streaming
-        ds = load_dataset(repo_id, split="train", streaming=True)
-        # 2. Création explicite de l'itérateur
-        self.dataset_iterator = iter(ds)
+        # Initialisation du flux
+        self._reset_iterator()
         
-        # 3. Passage de l'itérateur à l'alchimiste
-        self.alchemist = GridAlchemist(self.dataset_iterator, self.tokenizer)
         self.assistant_start_tokens = self.tokenizer.encode("<|im_start|>assistant\n", add_special_tokens=False)
 
+    def _reset_iterator(self):
+        """Réinitialise le flux de données."""
+        ds = load_dataset(self.repo_id, split="train", streaming=True)
+        self.dataset_iterator = iter(ds)
+        # On passe le nouvel itérateur à l'alchimiste
+        self.alchemist = GridAlchemist(self.dataset_iterator, self.tokenizer)
+
     def __iter__(self):
-        # Le Trainer appellera __iter__ pour commencer à consommer le dataset
         while True:
             try:
                 sample = self.alchemist.get_sample()
             except StopIteration:
-                # Si l'itérateur est épuisé, on le recrée
-                break 
+                # Réinitialisation transparente du flux quand il est épuisé
+                self._reset_iterator()
+                continue
+            except Exception:
+                # Sécurité pour les autres erreurs potentielles
+                continue
                 
             prompt = self._format_prompt(sample)
             
