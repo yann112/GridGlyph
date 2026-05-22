@@ -1,8 +1,11 @@
 import random
 
 class GridAlchemist:
-    def __init__(self, seeds, tokenizer, kanji_limit=2000):
-        self.seeds = seeds
+    def __init__(self, dataset_iterator, tokenizer, kanji_limit=2000):
+        """
+        dataset_iterator: L'itérateur provenant de load_dataset(..., streaming=True)
+        """
+        self.dataset_iterator = dataset_iterator
         self.tokenizer = tokenizer
         # Safe pool built once at startup using injected tokenizer
         self.kanji_pool = self._generate_safe_pool(kanji_limit)
@@ -21,7 +24,14 @@ class GridAlchemist:
         return safe_chars
 
     def get_sample(self):
-        seed = random.choice(self.seeds)
+        # On récupère le prochain échantillon du flux (streaming)
+        try:
+            seed = next(self.dataset_iterator)
+        except StopIteration:
+            # Si le dataset est épuisé, cette logique dépendra de ton dataset_iterator
+            # Dans le contexte du Trainer, il devrait se réinitialiser automatiquement
+            raise StopIteration
+
         # Fresh symbolic mapping every single time
         symbols = random.sample(self.kanji_pool, 10)
         perm_map = dict(zip(range(10), symbols))
@@ -33,4 +43,5 @@ class GridAlchemist:
         }
 
     def _apply_iso(self, grid, mapping):
+        # On s'assure de traiter les listes de listes récursivement
         return [[mapping.get(cell, cell) for cell in row] for row in grid]
