@@ -5,27 +5,29 @@ import numpy as np
 import random
 import cv2
 
+INT_TO_ROMAN_MAP = {
+    0: "∅", 1: 'I', 2: 'II', 3: 'III', 4: 'IV', 5: 'V',
+    6: 'VI', 7: 'VII', 8: 'VIII', 9: 'IX', 10: 'X',
+    11: 'XI', 12: 'XII', 13: 'XIII', 14: 'XIV', 15: 'XV',
+    16: 'XVI', 17: 'XVII', 18: 'XVIII', 19: 'XIX', 20: 'XX',
+    21: 'XXI', 22: 'XXII', 23: 'XXIII', 24: 'XXIV', 25: 'XXV',
+    26: 'XXVI', 27: 'XXVII', 28: 'XXVIII', 29: 'XXIX', 30: 'XXX'
+}
+
+# Inversion dynamique du dictionnaire pour la lecture
+ROMAN_TO_INT_MAP = {v: k for k, v in INT_TO_ROMAN_MAP.items()}
+
+
 def int_to_roman(num: int) -> str:
-    mapping = {
-        0: "∅", 1: 'I', 2: 'II', 3: 'III', 4: 'IV', 5: 'V',
-        6: 'VI', 7: 'VII', 8: 'VIII', 9: 'IX', 10: 'X',
-        11: 'XI', 12: 'XII', 13: 'XIII', 14: 'XIV', 15: 'XV',
-        16: 'XVI', 17: 'XVII', 18: 'XVIII', 19: 'XIX', 20: 'XX',
-        21: 'XXI', 22: 'XXII', 23: 'XXIII', 24: 'XXIV', 25: 'XXV',
-        26: 'XXVI', 27: 'XXVII', 28: 'XXVIII', 29: 'XXIX', 30: 'XXX'
-    }
-    return mapping.get(num, "∅")
+    """Convertit un entier de 0 à 30 en chiffre romain du DSL."""
+    return INT_TO_ROMAN_MAP.get(num, "∅")
+
 
 def roman_to_int(roman_numeral: str) -> int:
-    mapping = {
-        '∅': 0, 'I': 1, 'II': 2, 'III': 3, 'IV': 4, 'V': 5,
-        'VI': 6, 'VII': 7, 'VIII': 8, 'IX': 9, 'X': 10,
-        'XI': 11, 'XII': 12, 'XIII': 13, 'XIV': 14, 'XV': 15,
-        'XVI': 16, 'XVII': 17, 'XVIII': 18, 'XIX': 19, 'XX': 20,
-        'XXI': 21, 'XXII': 22, 'XXIII': 23, 'XXIV': 24, 'XXV': 25,
-        'XXVI': 26, 'XXVII': 27, 'XXVIII': 28, 'XXIX': 29, 'XXX': 30
-    }
-    return mapping.get(roman_numeral.upper())
+    """Convertit un chiffre romain du DSL en entier. Retourne 0 si inconnu."""
+    # .upper() est conservé au cas où, mais attention à l'ensemble vide '∅'
+    clean_numeral = roman_numeral.upper() if roman_numeral else "∅"
+    return ROMAN_TO_INT_MAP.get(clean_numeral, 0)
 
 def generate_single_random_grid(shape=(10, 10), max_dim=30, num_range=9):
     rows, cols = shape

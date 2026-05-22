@@ -22,7 +22,9 @@ dependencies = [
     "opencv-python",
     "pillow",
     "requests",
-    "pytest"
+    "pytest",
+    "tiktoken",
+     "sentencepiece"
 ]
 
 [project.scripts]
