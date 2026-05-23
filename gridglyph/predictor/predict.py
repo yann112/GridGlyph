@@ -27,34 +27,37 @@ class Predictor:
         self.model.eval()
 
     def predict(self, input_grid, output_grid):
-        # 1. Reproduire EXACTEMENT le formatage de l'entraînement
-        in_grid = json.dumps(input_grid, ensure_ascii=False)
-        out_grid = json.dumps(output_grid, ensure_ascii=False)
+        # 1. Utiliser le chat_template officiel de Qwen
+        messages = [
+            {"role": "user", "content": f"{json.dumps(input_grid)}\n{json.dumps(output_grid)}"}
+        ]
         
-        # On prépare le prompt jusqu'au début de l'assistant
-        prompt = (
-            f"<|im_start|>user\n{in_grid}\n{out_grid}<|im_end|>\n"
-            f"<|im_start|>assistant\n"
+        # Le tokenizer transforme les rôles en VRAIS jetons spéciaux
+        text = self.tokenizer.apply_chat_template(
+            messages, 
+            tokenize=False, 
+            add_generation_prompt=True
         )
         
-        # 2. Tokenisation
-        inputs = self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
+        inputs = self.tokenizer(text, return_tensors="pt").to(self.model.device)
         
-        # 3. Génération
+        # 2. Génération
         with torch.no_grad():
             output_ids = self.model.generate(
                 **inputs, 
-                max_new_tokens=16, # Suffisant pour une règle atomique
-                do_sample=False,   # Deterministe pour le test
+                max_new_tokens=10,
+                do_sample=False,
+                # On interdit au modèle de recracher le prompt
                 pad_token_id=self.tokenizer.eos_token_id
             )
         
-        # 4. Extraction propre : on ne garde que ce qui suit le prompt
-        # On décode tout et on retire la longueur du prompt initial
-        full_text = self.tokenizer.decode(output_ids[0], skip_special_tokens=True)
-        response = full_text.split("<|im_start|>assistant\n")[-1].replace("<|im_end|>", "").strip()
+        # 3. Extraction : on ne garde que ce qui suit le prompt
+        # La longueur des inputs nous permet de sauter exactement ce que le modèle a reçu
+        input_length = inputs.input_ids.shape[1]
+        generated_tokens = output_ids[0][input_length:]
+        response = self.tokenizer.decode(generated_tokens, skip_special_tokens=True)
         
-        return response.replace(" ", "") # On applique le même nettoyage que l'entraînement
+        return response.strip().replace(" ", "")
 
 def main():
     parser = argparse.ArgumentParser()
