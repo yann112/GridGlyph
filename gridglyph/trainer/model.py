@@ -26,7 +26,7 @@ class GridGlyphModel:
             device_map = "auto"
 
         # 2. Load Tokenizer
-        self.tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
+        self.tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True, use_fast=False)
         self.tokenizer.padding_side = "right"
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
@@ -103,6 +103,22 @@ class GridGlyphModel:
         self.model.print_trainable_parameters()
 
     def save_adapter(self, output_path):
-        """Sauvegarde l'adaptateur LoRA léger et le tokenizer synchronisé."""
-        self.model.save_pretrained(output_path)
-        self.tokenizer.save_pretrained(output_path)
+            # 1. Sauvegarde explicite des configs du tokenizer
+            self.tokenizer.save_pretrained(output_path)
+            
+            # 2. Sauvegarde des poids LoRA
+            self.model.save_pretrained(output_path)
+            
+            # 3. RUPTURE : On s'assure que le 'tokenizer_config.json' 
+            # pointe vers le bon tokenizer_class pour éviter l'erreur de "backend"
+            # au moment du chargement.
+            import os
+            config_path = os.path.join(output_path, "tokenizer_config.json")
+            with open(config_path, "r+") as f:
+                data = json.load(f)
+                data["tokenizer_class"] = "Qwen2Tokenizer" # Force la classe native
+                f.seek(0)
+                json.dump(data, f, indent=4)
+                f.truncate()
+                
+            print(f"✅ Adaptateur et Tokenizer synchronisés dans {output_path}")
