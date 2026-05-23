@@ -9,7 +9,6 @@ from .dataset import GridGlyphDataset
 def load_final_config(override_path="config.yaml"):
     base_path = os.path.dirname(__file__)
     default_path = os.path.join(base_path, "default_config.yaml")
-    
     if not os.path.exists(default_path):
         default_path = "default_config.yaml"
 
@@ -19,7 +18,6 @@ def load_final_config(override_path="config.yaml"):
     if os.path.exists(override_path):
         with open(override_path, "r") as f:
             overrides = yaml.safe_load(f)
-            
         if overrides:
             for key, value in overrides.items():
                 if isinstance(value, dict) and key in config and isinstance(config[key], dict):
@@ -35,10 +33,9 @@ def start_fine_tuning():
     
     cfg = load_final_config(args.config)
     
-    if torch.cuda.device_count() > 1:
+    if torch.cuda.is_available() and torch.cuda.device_count() > 1:
         os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
-    # Initialisation du modèle
     gg_model = GridGlyphModel(
         model_id=cfg['model']['name'], 
         r=cfg['model']['lora_r'],
@@ -50,7 +47,7 @@ def start_fine_tuning():
         repo_id=cfg['repo']['seeds']
     )
 
-    use_gpu = torch.cuda.is_available() and cfg['model']['use_4bit']
+    use_gpu = torch.cuda.is_available()
     
     training_args = TrainingArguments(
         output_dir=cfg['training'].get('output_dir', "./gridglyph_outputs"),
@@ -63,9 +60,9 @@ def start_fine_tuning():
         use_cpu=not use_gpu,
         push_to_hub=cfg['training']['push_to_hub'],
         hub_model_id=cfg['repo']['output'],
-        hub_strategy=cfg['training'].get('hub_strategy', "every_save"), 
+        hub_strategy="every_save", 
         save_steps=cfg['training'].get('save_steps', 500),
-        save_total_limit=cfg['training'].get('save_total_limit', 2),
+        save_total_limit=2,
         logging_steps=10,
         report_to="none"
     )
@@ -77,23 +74,23 @@ def start_fine_tuning():
         data_collator=DataCollatorForLanguageModeling(gg_model.tokenizer, mlm=False),
     )
 
-    if torch.cuda.is_available():
+    if use_gpu:
         torch.cuda.empty_cache()
 
     trainer.train()
     
-    # --- SAUVEGARDE DYNAMIQUE ET PROPRE ---
     output_dir = training_args.output_dir
     os.makedirs(output_dir, exist_ok=True)
     
-    # 1. Mise à jour explicite de la config du modèle avant sauvegarde
-    # Cela garantit que le config.json contient le bon vocab_size
     gg_model.model.config.vocab_size = len(gg_model.tokenizer)
     
-    # 2. Sauvegarde des composants
     gg_model.tokenizer.save_pretrained(output_dir)
     gg_model.model.config.save_pretrained(output_dir)
     gg_model.model.save_pretrained(output_dir)
 
     if cfg['training']['push_to_hub']:
         trainer.push_to_hub(commit_message="Train: Add DSL tokenizer and LoRA adapter")
+        gg_model.tokenizer.push_to_hub(cfg['repo']['output'])
+
+if __name__ == "__main__":
+    start_fine_tuning()
