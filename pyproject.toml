@@ -29,7 +29,6 @@ dependencies = [
 
 [project.scripts]
 gridglyph-train = "gridglyph.trainer.train:start_fine_tuning"
-gridglyph-predict = "gridglyph.predictor.predict:main"
 gridglyph-build = "gridglyph.__main__:main"
 
 [tool.setuptools]

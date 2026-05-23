@@ -1,5 +1,5 @@
 import json
-import torch
+import random
 from torch.utils.data import IterableDataset
 from datasets import load_dataset
 from gridglyph.trainer.generator import GridAlchemist
@@ -17,9 +17,9 @@ class GridGlyphDataset(IterableDataset):
 
     def _reset_iterator(self):
         """Réinitialise le flux de données."""
-        ds = load_dataset(self.repo_id, split="train", streaming=True)
+        ds = list(load_dataset(self.repo_id, split="train", streaming=False))
+        random.shuffle(ds) 
         self.dataset_iterator = iter(ds)
-        # On passe le nouvel itérateur à l'alchimiste
         self.alchemist = GridAlchemist(self.dataset_iterator, self.tokenizer)
 
     def __iter__(self):
