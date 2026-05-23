@@ -1,4 +1,5 @@
 import torch
+import json
 import argparse
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from peft import PeftModel
@@ -25,24 +26,35 @@ class Predictor:
         self.model = PeftModel.from_pretrained(model, model_path)
         self.model.eval()
 
-    def predict(self, input_kanji, output_kanji):
+    def predict(self, input_grid, output_grid):
+        # 1. Reproduire EXACTEMENT le formatage de l'entraînement
+        in_grid = json.dumps(input_grid, ensure_ascii=False)
+        out_grid = json.dumps(output_grid, ensure_ascii=False)
+        
+        # On prépare le prompt jusqu'au début de l'assistant
         prompt = (
-            f"<|im_start|>user\n{input_kanji}\n"
-            f"{output_kanji}<|im_end|>\n"
+            f"<|im_start|>user\n{in_grid}\n{out_grid}<|im_end|>\n"
             f"<|im_start|>assistant\n"
         )
         
+        # 2. Tokenisation
         inputs = self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
         
+        # 3. Génération
         with torch.no_grad():
             output_ids = self.model.generate(
                 **inputs, 
-                max_new_tokens=32,
-                do_sample=False
+                max_new_tokens=16, # Suffisant pour une règle atomique
+                do_sample=False,   # Deterministe pour le test
+                pad_token_id=self.tokenizer.eos_token_id
             )
         
+        # 4. Extraction propre : on ne garde que ce qui suit le prompt
+        # On décode tout et on retire la longueur du prompt initial
         full_text = self.tokenizer.decode(output_ids[0], skip_special_tokens=True)
-        return full_text.split("<|im_start|>assistant\n")[-1].replace("<|im_end|>", "").strip()
+        response = full_text.split("<|im_start|>assistant\n")[-1].replace("<|im_end|>", "").strip()
+        
+        return response.replace(" ", "") # On applique le même nettoyage que l'entraînement
 
 def main():
     parser = argparse.ArgumentParser()
