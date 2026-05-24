@@ -8,19 +8,20 @@ class Predictor:
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
         self.tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
         
-        # Chargement en float32 (précision standard)
-        model = AutoModelForCausalLM.from_pretrained(
+        # 1. Chargement du modèle de base en float16
+        base_model = AutoModelForCausalLM.from_pretrained(
             "Qwen/Qwen2.5-0.5B-Instruct", 
-            torch_dtype=torch.float32
+            torch_dtype=torch.float16
         ).to(self.device)
         
-        model.resize_token_embeddings(len(self.tokenizer))
+        # 2. Resizing nécessaire AVANT de charger PEFT
+        base_model.resize_token_embeddings(len(self.tokenizer))
         
-        vocab_size = len(self.tokenizer)
-        if model.lm_head.out_features != vocab_size:
-            model.lm_head = torch.nn.Linear(model.config.hidden_size, vocab_size, bias=False).to(self.device)
-            
-        self.model = PeftModel.from_pretrained(model, model_path).to(self.device)
+        # 3. Chargement de l'adaptateur
+        self.model = PeftModel.from_pretrained(base_model, model_path)
+        
+        # 4. LE VERROU : Conversion explicite et récursive du modèle complet
+        self.model = self.model.to(self.device).half()
         self.model.eval()
 
     def predict(self, input_grid, output_grid):
@@ -29,17 +30,22 @@ class Predictor:
         ]
         prompt = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
         
-        inputs = self.tokenizer(prompt, return_tensors="pt").to(self.device)
+        # 5. Tokenisation avec forçage du device et type half
+        inputs = self.tokenizer(prompt, return_tensors="pt")
+        input_ids = inputs["input_ids"].to(self.device)
+        attention_mask = inputs["attention_mask"].to(self.device)
         
         with torch.no_grad():
+            # Pas besoin de cast ici si self.model est bien en Half
             output_ids = self.model.generate(
-                **inputs,
+                input_ids=input_ids,
+                attention_mask=attention_mask,
                 max_new_tokens=10,
                 do_sample=False,
                 pad_token_id=self.tokenizer.eos_token_id
             )
         
-        generated_ids = output_ids[0][inputs['input_ids'].shape[1]:]
+        generated_ids = output_ids[0][input_ids.shape[1]:]
         response = self.tokenizer.decode(generated_ids, skip_special_tokens=True)
         
         return response.strip().replace(" ", "")
