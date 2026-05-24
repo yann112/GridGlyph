@@ -8,23 +8,24 @@ class Predictor:
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
         self.tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
         
-        # Charger en float32 pour éviter les conflits Half/Float dès le départ
+        # Chargement en float32 explicite avec low_cpu_mem_usage désactivé
         base_model = AutoModelForCausalLM.from_pretrained(
             "Qwen/Qwen2.5-0.5B-Instruct", 
-            torch_dtype=torch.float32
-        ).to(self.device)
+            torch_dtype=torch.float32,
+            low_cpu_mem_usage=False
+        )
         
         base_model.resize_token_embeddings(len(self.tokenizer))
         
-        self.model = PeftModel.from_pretrained(base_model, model_path).to(self.device)
+        # Chargement de l'adaptateur PEFT
+        self.model = PeftModel.from_pretrained(base_model, model_path)
         
-        # Hook pour forcer le float32 avant le lm_head
-        def force_float32(module, inputs, outputs):
-            return outputs.to(torch.float32)
-        
-        # On attache le hook sur la sortie de la couche juste avant lm_head
-        self.model.base_model.model.model.norm.register_forward_hook(force_float32)
-        
+        # RUPTURE : Forçage manuel de chaque paramètre en float32
+        # Cela écrase toute instruction Half venant des métadonnées du modèle
+        for param in self.model.parameters():
+            param.data = param.data.to(torch.float32)
+            
+        self.model = self.model.to(self.device)
         self.model.eval()
 
     def predict(self, input_grid, output_grid):
@@ -33,15 +34,21 @@ class Predictor:
         ]
         prompt = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
         
-        inputs = self.tokenizer(prompt, return_tensors="pt").to(self.device)
+        # Tokenisation avec forçage explicite en float32
+        inputs = self.tokenizer(prompt, return_tensors="pt")
+        input_ids = inputs["input_ids"].to(self.device)
+        attention_mask = inputs["attention_mask"].to(self.device).to(torch.float32)
         
         with torch.no_grad():
             output_ids = self.model.generate(
-                **inputs,
+                input_ids=input_ids,
+                attention_mask=attention_mask,
                 max_new_tokens=10,
                 do_sample=False,
                 pad_token_id=self.tokenizer.eos_token_id
             )
         
-        generated_ids = output_ids[0][inputs['input_ids'].shape[1]:]
-        return self.tokenizer.decode(generated_ids, skip_special_tokens=True).strip().replace(" ", "")
+        generated_ids = output_ids[0][input_ids.shape[1]:]
+        response = self.tokenizer.decode(generated_ids, skip_special_tokens=True)
+        
+        return response.strip().replace(" ", "")
