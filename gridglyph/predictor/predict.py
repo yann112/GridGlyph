@@ -8,24 +8,22 @@ class Predictor:
         self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
         self.tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
         
-        # Chargement en float32 explicite avec low_cpu_mem_usage désactivé
+        # Chargement du modèle de base
+        # On ne force pas le dtype ici pour laisser le modèle charger nativement
         base_model = AutoModelForCausalLM.from_pretrained(
-            "Qwen/Qwen2.5-0.5B-Instruct", 
-            torch_dtype=torch.float32,
-            low_cpu_mem_usage=False
+            "Qwen/Qwen2.5-0.5B-Instruct",
+            device_map=None
         )
         
+        # Resize du vocabulaire AVANT le chargement PEFT
         base_model.resize_token_embeddings(len(self.tokenizer))
         
-        # Chargement de l'adaptateur PEFT
+        # Chargement de l'adaptateur
         self.model = PeftModel.from_pretrained(base_model, model_path)
         
-        # RUPTURE : Forçage manuel de chaque paramètre en float32
-        # Cela écrase toute instruction Half venant des métadonnées du modèle
-        for param in self.model.parameters():
-            param.data = param.data.to(torch.float32)
-            
-        self.model = self.model.to(self.device)
+        # RUPTURE : Forçage explicite sur le modèle complet APRES chargement
+        # On s'assure que le cast est propagé sur TOUT le modèle
+        self.model = self.model.to(self.device).float()
         self.model.eval()
 
     def predict(self, input_grid, output_grid):
@@ -34,21 +32,17 @@ class Predictor:
         ]
         prompt = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
         
-        # Tokenisation avec forçage explicite en float32
-        inputs = self.tokenizer(prompt, return_tensors="pt")
-        input_ids = inputs["input_ids"].to(self.device)
-        attention_mask = inputs["attention_mask"].to(self.device).to(torch.float32)
-        
+        # Utilisation d'un contexte de précision explicite pour l'inférence
         with torch.no_grad():
-            output_ids = self.model.generate(
-                input_ids=input_ids,
-                attention_mask=attention_mask,
-                max_new_tokens=10,
-                do_sample=False,
-                pad_token_id=self.tokenizer.eos_token_id
-            )
+            with torch.autocast(device_type="cuda", enabled=False): # Désactivation de l'autocast
+                inputs = self.tokenizer(prompt, return_tensors="pt").to(self.device)
+                
+                output_ids = self.model.generate(
+                    **inputs,
+                    max_new_tokens=10,
+                    do_sample=False,
+                    pad_token_id=self.tokenizer.eos_token_id
+                )
         
-        generated_ids = output_ids[0][input_ids.shape[1]:]
-        response = self.tokenizer.decode(generated_ids, skip_special_tokens=True)
-        
-        return response.strip().replace(" ", "")
+        generated_ids = output_ids[0][inputs['input_ids'].shape[1]:]
+        return self.tokenizer.decode(generated_ids, skip_special_tokens=True).strip().replace(" ", "")
